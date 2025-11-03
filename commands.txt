@@ -1,0 +1,5 @@
+mvn exec:java -Dexec.mainClass="edu.sustech.xiangqi.XiangqiApplication"
+
+export DISPLAY=:0
+
+mvn clean compile
