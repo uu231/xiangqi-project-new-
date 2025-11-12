@@ -22,6 +22,22 @@ public class ChessBoardModel {
         pieces.add(new SoldierPiece("卒", 3, 4, false));
         pieces.add(new SoldierPiece("卒", 3, 6, false));
         pieces.add(new SoldierPiece("卒", 3, 8, false));
+        pieces.add(new CarPiece("车", 0, 0, false));
+        pieces.add(new CarPiece("车", 0, 8, false));
+        pieces.add(new MaPiece("马", 0, 1, false));
+        pieces.add(new MaPiece("马", 0, 7, false));
+        pieces.add(new ShiPiece("仕", 0, 3, false));
+        pieces.add(new ShiPiece("仕", 0, 5, false));
+        pieces.add(new XiangPiece("象", 0, 2, false));
+        pieces.add(new XiangPiece("象", 0, 6, false));
+        pieces.add(new PaoPiece("炮", 2, 1, false));
+        pieces.add(new PaoPiece("炮", 2, 7, false));
+
+
+
+
+
+
 
         // 红方棋子
         pieces.add(new GeneralPiece("帅", 9, 4, true));
@@ -30,6 +46,20 @@ public class ChessBoardModel {
         pieces.add(new SoldierPiece("兵", 6, 4, true));
         pieces.add(new SoldierPiece("兵", 6, 6, true));
         pieces.add(new SoldierPiece("兵", 6, 8, true));
+        pieces.add(new CarPiece("车", 9, 0, true));
+        pieces.add(new CarPiece("车", 9, 8, true));
+        pieces.add(new MaPiece("马", 9, 1, true));
+        pieces.add(new MaPiece("马", 9, 7, true));
+        pieces.add(new ShiPiece("仕", 9, 3, true));
+        pieces.add(new ShiPiece("仕", 9, 5, true));
+        pieces.add(new XiangPiece("象", 9, 2, true));
+        pieces.add(new XiangPiece("象", 9, 6, true));
+        pieces.add(new PaoPiece("炮", 7, 1, true));
+        pieces.add(new PaoPiece("炮", 7, 7, true));
+
+
+
+
     }
 
     public List<AbstractPiece> getPieces() {
