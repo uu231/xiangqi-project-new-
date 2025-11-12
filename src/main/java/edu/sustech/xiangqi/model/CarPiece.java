@@ -17,20 +17,41 @@ public class CarPiece extends AbstractPiece {
         if (currentRow == targetRow && currentCol == targetCol) {
             return false;
         }
+        AbstractPiece targetPiece = model.getPieceAt(targetRow, targetCol);
+        if (targetPiece != null) {
+            if (targetPiece.isRed() == this.isRed()) {
+                return false; // 不能吃自己的棋子
+            } 
+        }
 
         int rowDiff = targetRow - currentRow;
         int colDiff = Math.abs(targetCol - currentCol);
 
         // 车的移动规则：
         // 1. 只能单方向移动
-        if (isRed()) {
-            // 红方车（向上走，row减小）
-            if (rowDiff != 0 && colDiff == 0) return true; // 向上或向下
-            return rowDiff == 0 && colDiff != 0;  // 向左或向右
+        if (rowDiff != 0 && colDiff != 0) return false;
+
+        // 2. 循环检查途中是否有格挡
+        if (currentRow == targetRow) {
+            // 横向移动
+            int start = Math.min(currentCol, targetCol) + 1;
+            int end = Math.max(currentCol, targetCol);
+            for (int c = start; c < end; c++) {
+                if (model.getPieceAt(currentRow, c) != null) {
+                    return false; // 路径被阻挡
+                }
+            }
         } else {
-            // 黑方车（向下走，row增大）
-            if (rowDiff != 0 && colDiff == 0) return true; // 向上或向下
-            return rowDiff == 0 && colDiff != 0;  // 向左或向右
+            // 纵向移动
+            int start = Math.min(currentRow, targetRow) + 1;
+            int end = Math.max(currentRow, targetRow);
+            for (int r = start; r < end; r++) {
+                if (model.getPieceAt(r, currentCol) != null) {
+                    return false; // 路径被阻挡
+                }
+            }
         }
+
+        return true;
     }
 }

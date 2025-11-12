@@ -88,6 +88,15 @@ public class ChessBoardModel {
             return false;
         }
 
+        AbstractPiece targetPiece = getPieceAt(newRow, newCol);
+    
+        if (targetPiece != null) {
+            if (targetPiece.isRed() != piece.isRed()) {
+                pieces.remove(targetPiece);  //删除敌方棋子
+                System.out.println("吃掉了 " + targetPiece.getName());
+            }
+        }
+
         piece.moveTo(newRow, newCol);
         return true;
     }

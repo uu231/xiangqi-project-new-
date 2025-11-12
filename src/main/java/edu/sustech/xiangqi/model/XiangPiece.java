@@ -17,6 +17,10 @@ public class XiangPiece extends AbstractPiece {
         if (currentRow == targetRow && currentCol == targetCol) {
             return false;
         }
+        AbstractPiece targetPiece = model.getPieceAt(targetRow, targetCol);
+        if (targetPiece != null && targetPiece.isRed() == this.isRed()) {
+            return false; // 不能吃自己的棋子
+        }
 
         int rowDiff = targetRow - currentRow;
         int colDiff = Math.abs(targetCol - currentCol);
@@ -24,6 +28,13 @@ public class XiangPiece extends AbstractPiece {
         // 象的移动规则：
         // 1. 田字形
         // 2. 不能过河
+        // 3. 不能别象眼
+        int midRowPosition = (currentRow+targetRow)/2;
+        int midColPosition = (currentCol+targetCol)/2;
+        AbstractPiece targetPiece1 = model.getPieceAt(midRowPosition, midColPosition);
+        if (targetPiece1 != null) {
+            return false;
+        }
         if (isRed()) {
             // 红方象（向上走，row减小）
             if (rowDiff == -2 && colDiff == 2 && targetRow >= 5) return true; 

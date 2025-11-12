@@ -18,6 +18,10 @@ public class ShiPiece extends AbstractPiece {
         if (currentRow == targetRow && currentCol == targetCol) {
             return false;
         }
+        AbstractPiece targetPiece = model.getPieceAt(targetRow, targetCol);
+        if (targetPiece != null && targetPiece.isRed() == this.isRed()) {
+            return false; // 不能吃自己的棋子
+        }
         int rowDiff = targetRow - currentRow;
         int colDiff = targetCol - currentCol;
 

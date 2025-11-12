@@ -7,6 +7,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.List;
+import java.util.ArrayList;
 
 public class ChessBoardPanel extends JPanel {
     private final ChessBoardModel model;
@@ -59,22 +61,68 @@ public class ChessBoardPanel extends JPanel {
             selectedPiece = null;
         }
 
-        // 处理完点击事件后，需要重新绘制ui界面才能让界面上的棋子“移动”起来
-        // Swing 会将多个请求合并后再重新绘制，因此调用 repaint 后gui不会立刻变更
-        // repaint 中会调用 paintComponent，从而重新绘制gui上棋子的位置等
         repaint();
     }
 
+    /**
+     * 获取某个棋子的所有合法移动位置
+     */
+    private List<Point> getValidMoves(AbstractPiece piece) {
+        List<Point> validMoves = new ArrayList<>();
+        
+        if (piece == null) return validMoves;
+        
+        // 遍历整个棋盘，找出所有合法移动
+        for (int r = 0; r < ChessBoardModel.getRows(); r++) {
+            for (int c = 0; c < ChessBoardModel.getCols(); c++) {
+                if (piece.canMoveTo(r, c, model)) {
+                    validMoves.add(new Point(c, r)); // 注意：Point(x, y) = Point(col, row)
+                }
+            }
+        }
+        
+        return validMoves;
+    }
+    
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Demo的GUI都是由Swing中基本的组件组成的，比如背景的格子是用许多个line组合起来实现的，棋子是先绘制一个circle再在上面绘制一个text实现的
-        // 因此绘制GUI的过程中需要自己手动计算每个组件的位置（坐标）
         drawBoard(g2d);
         drawPieces(g2d);
+        
+        // 如果有选中的棋子，高亮所有合法移动位置
+        if (selectedPiece != null) {
+            drawValidMoveHints(g2d);
+        }
+    }
+
+    /**
+     * 绘制合法移动位置的提示
+     */
+    private void drawValidMoveHints(Graphics2D g) {
+        List<Point> validMoves = getValidMoves(selectedPiece);
+        
+        for (Point move : validMoves) {
+            int x = MARGIN + move.x * CELL_SIZE; // move.x 是列
+            int y = MARGIN + move.y * CELL_SIZE; // move.y 是行
+            
+            AbstractPiece targetPiece = model.getPieceAt(move.y, move.x);
+            
+            if (targetPiece == null) {
+                // 空位：画半透明的小圆点
+                g.setColor(new Color(0, 255, 0, 150));
+                g.fillOval(x - 8, y - 8, 16, 16);
+            } else {
+                // 敌方棋子：画半透明的圆圈
+                g.setColor(new Color(255, 0, 0, 100));
+                g.setStroke(new BasicStroke(3));
+                g.drawOval(x - PIECE_RADIUS - 5, y - PIECE_RADIUS - 5, 
+                          (PIECE_RADIUS + 5) * 2, (PIECE_RADIUS + 5) * 2);
+            }
+        }
     }
 
     /**
@@ -94,16 +142,14 @@ public class ChessBoardPanel extends JPanel {
         for (int i = 0; i < ChessBoardModel.getCols(); i++) {
             int x = MARGIN + i * CELL_SIZE;
             if (i == 0 || i == ChessBoardModel.getCols() - 1) {
-                // 两边的竖线贯通整个棋盘
                 g.drawLine(x, MARGIN, x, MARGIN + (ChessBoardModel.getRows() - 1) * CELL_SIZE);
             } else {
-                // 中间的竖线分为上下两段（楚河汉界断开）
                 g.drawLine(x, MARGIN, x, MARGIN + 4 * CELL_SIZE);
                 g.drawLine(x, MARGIN + 5 * CELL_SIZE, x, MARGIN + (ChessBoardModel.getRows() - 1) * CELL_SIZE);
             }
         }
 
-        // 绘制“楚河”和“汉界”这两个文字
+        // 绘制"楚河"和"汉界"
         g.setColor(Color.BLACK);
         g.setFont(new Font("楷体", Font.BOLD, 24));
 
@@ -123,27 +169,27 @@ public class ChessBoardPanel extends JPanel {
      * 绘制棋子
      */
     private void drawPieces(Graphics2D g) {
-        // 遍历棋盘上的每一个棋子，每次循环绘制该棋子
         for (AbstractPiece piece : model.getPieces()) {
-            // 计算每一个棋子的坐标
             int x = MARGIN + piece.getCol() * CELL_SIZE;
             int y = MARGIN + piece.getRow() * CELL_SIZE;
 
             boolean isSelected = (piece == selectedPiece);
 
-            // 先绘制circle
+            // 绘制棋子背景
             g.setColor(new Color(245, 222, 179));
             g.fillOval(x - PIECE_RADIUS, y - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
-            // 绘制circle的黑色边框
+            
+            // 绘制边框
             g.setColor(Color.BLACK);
             g.setStroke(new BasicStroke(2));
             g.drawOval(x - PIECE_RADIUS, y - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
 
+            // 如果被选中，绘制蓝色边框
             if (isSelected) {
                 drawCornerBorders(g, x, y);
             }
 
-            // 再在circle上面绘制对应的棋子名字
+            // 绘制棋子文字
             if (piece.isRed()) {
                 g.setColor(new Color(200, 0, 0));
             } else {
@@ -167,27 +213,25 @@ public class ChessBoardPanel extends JPanel {
         int cornerSize = 32;
         int lineLength = 12;
 
-        // 选中效果的边框实际上是8条line，每两个line组成一个角落的边框
-
-        // 左上角的边框
+        // 左上角
         g.drawLine(centerX - cornerSize, centerY - cornerSize,
                 centerX - cornerSize + lineLength, centerY - cornerSize);
         g.drawLine(centerX - cornerSize, centerY - cornerSize,
                 centerX - cornerSize, centerY - cornerSize + lineLength);
 
-        // 右上角的边框
+        // 右上角
         g.drawLine(centerX + cornerSize, centerY - cornerSize,
                 centerX + cornerSize - lineLength, centerY - cornerSize);
         g.drawLine(centerX + cornerSize, centerY - cornerSize,
-                centerX + cornerSize, centerY - cornerSize + lineLength);
+                centerX + cornerSize, centerY + cornerSize - lineLength);
 
-        // 左下角的边框
+        // 左下角
         g.drawLine(centerX - cornerSize, centerY + cornerSize,
                 centerX - cornerSize + lineLength, centerY + cornerSize);
         g.drawLine(centerX - cornerSize, centerY + cornerSize,
                 centerX - cornerSize, centerY + cornerSize - lineLength);
 
-        // 右下角的边框
+        // 右下角
         g.drawLine(centerX + cornerSize, centerY + cornerSize,
                 centerX + cornerSize - lineLength, centerY + cornerSize);
         g.drawLine(centerX + cornerSize, centerY + cornerSize,

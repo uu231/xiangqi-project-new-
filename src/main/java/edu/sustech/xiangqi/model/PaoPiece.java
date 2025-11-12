@@ -17,20 +17,70 @@ public class PaoPiece extends AbstractPiece {
         if (currentRow == targetRow && currentCol == targetCol) {
             return false;
         }
+        AbstractPiece targetPiece = model.getPieceAt(targetRow, targetCol);
+        if (targetPiece != null && targetPiece.isRed() == this.isRed()) {
+            return false; // 不能吃自己的棋子
+        }
 
         int rowDiff = targetRow - currentRow;
         int colDiff = Math.abs(targetCol - currentCol);
 
         // 炮的移动规则：
         // 1. 只能单方向移动
-        if (isRed()) {
-            // 红方炮（向上走，row减小）
-            if (rowDiff != 0 && colDiff == 0) return true; // 向上或向下
-            return rowDiff == 0 && colDiff != 0;  // 向左或向右
+        if (rowDiff != 0 && colDiff != 0) return false; 
+        // 2. 循环检查途中是否有格挡
+        if (targetPiece == null) {
+            if (currentRow == targetRow) {
+            // 横向移动
+                int start = Math.min(currentCol, targetCol) + 1;
+                int end = Math.max(currentCol, targetCol);
+                for (int c = start; c < end; c++) {
+                    if (model.getPieceAt(currentRow, c) != null) {
+                        return false; // 路径被阻挡
+                    }
+                }
+            } else {
+            // 纵向移动
+                int start = Math.min(currentRow, targetRow) + 1;
+                int end = Math.max(currentRow, targetRow);
+                for (int r = start; r < end; r++) {
+                    if (model.getPieceAt(r, currentCol) != null) {
+                        return false; // 路径被阻挡
+                    }
+                }
+            }
         } else {
-            // 黑方炮（向下走，row增大）
-            if (rowDiff != 0 && colDiff == 0) return true; // 向上或向下
-            return rowDiff == 0 && colDiff != 0;  // 向左或向右
+            boolean findTheFirstPiece = false;
+            if (currentRow == targetRow) {
+            // 横向移动
+                int start = Math.min(currentCol, targetCol) + 1;
+                int end = Math.max(currentCol, targetCol);
+                for (int c = start; c < end; c++) {
+                    if (model.getPieceAt(currentRow, c) != null) {
+                        if (!findTheFirstPiece) {
+                            findTheFirstPiece = true;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+            } else {
+            // 纵向移动
+                int start = Math.min(currentRow, targetRow) + 1;
+                int end = Math.max(currentRow, targetRow);
+                for (int r = start; r < end; r++) {
+                    if (model.getPieceAt(r, currentCol) != null) {
+                        if (!findTheFirstPiece) {
+                            findTheFirstPiece = true;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return findTheFirstPiece;
         }
+        return true;
+
     }
 }
