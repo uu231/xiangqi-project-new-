@@ -2,6 +2,7 @@ package edu.sustech.xiangqi.ui;
 
 import edu.sustech.xiangqi.model.ChessBoardModel;
 import edu.sustech.xiangqi.model.AbstractPiece;
+import edu.sustech.xiangqi.model.GameLogicModel;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 
 public class ChessBoardPanel extends JPanel {
     private final ChessBoardModel model;
+    private final GameLogicModel gameLogic;
 
     /**
      * 单个棋盘格子的尺寸（px）
@@ -28,10 +30,9 @@ public class ChessBoardPanel extends JPanel {
      */
     private static final int PIECE_RADIUS = 25;
 
-    private AbstractPiece selectedPiece = null;
-
     public ChessBoardPanel(ChessBoardModel model) {
         this.model = model;
+        this.gameLogic = new GameLogicModel(model);
         setPreferredSize(new Dimension(
                 CELL_SIZE * (ChessBoardModel.getCols() - 1) + MARGIN * 2,
                 CELL_SIZE * (ChessBoardModel.getRows() - 1) + MARGIN * 2
@@ -54,14 +55,33 @@ public class ChessBoardPanel extends JPanel {
             return;
         }
 
+        // 委托给逻辑层处理
+        AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
+        
         if (selectedPiece == null) {
-            selectedPiece = model.getPieceAt(row, col);
+            // 尝试选中棋子
+            if (gameLogic.selectPiece(row, col)) {
+                // 选中成功，刷新界面
+                repaint();
+            }
         } else {
-            model.movePiece(selectedPiece, row, col);
-            selectedPiece = null;
+            // 尝试移动
+            if (gameLogic.tryMove(row, col)) {
+                // 移动成功
+                repaint();     
+                // 检查游戏是否结束
+                gameLogic.checkGameOver();
+            } else {
+                // 移动失败（非法移动）
+                // 如果点击的是己方棋子，则切换选中
+                if (gameLogic.selectPiece(row, col)) {
+                    repaint();
+                } else {
+                    gameLogic.cancelSelection();
+                    repaint();
+                }
+            }
         }
-
-        repaint();
     }
 
     /**
@@ -76,7 +96,7 @@ public class ChessBoardPanel extends JPanel {
         for (int r = 0; r < ChessBoardModel.getRows(); r++) {
             for (int c = 0; c < ChessBoardModel.getCols(); c++) {
                 if (piece.canMoveTo(r, c, model)) {
-                    validMoves.add(new Point(c, r)); // 注意：Point(x, y) = Point(col, row)
+                    validMoves.add(new Point(c, r)); 
                 }
             }
         }
@@ -94,15 +114,16 @@ public class ChessBoardPanel extends JPanel {
         drawPieces(g2d);
         
         // 如果有选中的棋子，高亮所有合法移动位置
+        AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
         if (selectedPiece != null) {
-            drawValidMoveHints(g2d);
+            drawValidMoveHints(g2d, selectedPiece);
         }
     }
 
     /**
      * 绘制合法移动位置的提示
      */
-    private void drawValidMoveHints(Graphics2D g) {
+    private void drawValidMoveHints(Graphics2D g, AbstractPiece selectedPiece) {
         List<Point> validMoves = getValidMoves(selectedPiece);
         
         for (Point move : validMoves) {
@@ -169,7 +190,9 @@ public class ChessBoardPanel extends JPanel {
      * 绘制棋子
      */
     private void drawPieces(Graphics2D g) {
+        AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
         for (AbstractPiece piece : model.getPieces()) {
+
             int x = MARGIN + piece.getCol() * CELL_SIZE;
             int y = MARGIN + piece.getRow() * CELL_SIZE;
 

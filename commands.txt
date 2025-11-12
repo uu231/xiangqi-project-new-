@@ -1,3 +1,5 @@
 mvn clean compile
 export DISPLAY=:0
 mvn exec:java -Dexec.mainClass="edu.sustech.xiangqi.XiangqiApplication"
+
+git add .
