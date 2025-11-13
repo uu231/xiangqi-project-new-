@@ -2,12 +2,14 @@ package edu.sustech.xiangqi.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 
 public class GameLogicModel {
     private boolean redTurn;
     private AbstractPiece selectedPiece;
     private ChessBoardModel model;
     private GameState gameState;
+    private final Stack<Move> moveHistory;
 
     public enum GameState {
         PLAYING,
@@ -20,11 +22,13 @@ public class GameLogicModel {
         this.redTurn = true;
         this.selectedPiece = null;
         this.model = model;
+        this.moveHistory = new Stack<>();
         initGame();
     }
 
     private void initGame() {
         this.gameState = GameState.PLAYING;
+        this.moveHistory.clear();
     }
 
     public boolean selectPiece(int row, int col) {
@@ -50,35 +54,60 @@ public class GameLogicModel {
             return false;
         }
         // 2. 模拟移动，检查是否会导致自己被将军（“送将”）
-        //    a. 保存当前状态
         int originalRow = selectedPiece.getRow();
         int originalCol = selectedPiece.getCol();
         AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
-        //    b. 在内存中模拟移动
         if (capturedPiece != null) {
             model.getPieces().remove(capturedPiece);
         }
         selectedPiece.moveTo(targetRow, targetCol);
-        //    c. 检查在模拟移动后，自己是否被将军
+        //  检查在模拟移动后，自己是否被将军
         boolean willBeInCheck = isChecked(selectedPiece.isRed());
-        //    d. 恢复棋盘状态
+
         selectedPiece.moveTo(originalRow, originalCol);
         if (capturedPiece != null) {
             model.getPieces().add(capturedPiece);
         }
-        //    e. 如果模拟移动会导致自己被将军，则此移动非法
+        //  如果模拟移动会导致自己被将军，则此移动非法
         if (willBeInCheck) {
             System.out.println("非法移动：不能送将！");
             return false;
         }
+        AbstractPiece pieceToMove = selectedPiece;//记录移动
+        int fromRow = pieceToMove.getRow();
+        int fromCol = pieceToMove.getCol();
+        AbstractPiece pieceToCapture = model.getPieceAt(targetRow, targetCol);
+        Move move = new Move(pieceToMove, fromRow, fromCol, targetRow, targetCol, pieceToCapture);
         // 3. 如果所有检查都通过，执行真正的移动
         boolean moved = model.movePiece(selectedPiece, targetRow, targetCol);
         if (moved) {
+            moveHistory.push(move);
             selectedPiece = null;
+
             changeTurn();
             checkAndUpdateGameState();
         }
         return moved;
+    }
+
+    public boolean undoMove() {//悔棋逻辑
+        if (moveHistory.isEmpty()) {
+            return false;
+        }
+        Move lastMove = moveHistory.pop();
+        AbstractPiece movedPiece = lastMove.getMovedPiece();
+        int currentRow = movedPiece.getRow();
+        int currentCol = movedPiece.getCol();
+        AbstractPiece eatPiece = lastMove.getEatPiece();
+        movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
+        if (eatPiece != null) {//如果有子被吃就恢复
+            model.getPieces().add(eatPiece);
+        }
+        changeTurn();
+
+        gameState = GameState.PLAYING;
+        selectedPiece = null;
+        return true;
     }
 
     private void checkAndUpdateGameState() {
@@ -175,6 +204,7 @@ public class GameLogicModel {
         }
 
 
+   
     public void cancelSelection() {
         selectedPiece = null;
     }

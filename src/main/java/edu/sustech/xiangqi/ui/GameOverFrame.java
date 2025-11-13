@@ -14,7 +14,7 @@ public class GameOverFrame {
     public static void show(Component parentFrame, String winner, Runnable onRestart) {
         // 使用 JDialog 
         JDialog ggDialog = new JDialog(SwingUtilities.getWindowAncestor(parentFrame), "游戏结束", Dialog.ModalityType.APPLICATION_MODAL);
-        ggDialog.setSize(250, 150); 
+        ggDialog.setSize(250, 250); 
         ggDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE); // 只关闭对话框
 
         // 使用垂直布局

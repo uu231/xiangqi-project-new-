@@ -30,9 +30,9 @@ public class ChessBoardPanel extends JPanel {
      */
     private static final int PIECE_RADIUS = 25;
 
-    public ChessBoardPanel(ChessBoardModel model) {
+    public ChessBoardPanel(ChessBoardModel model, GameLogicModel gameLogic) {
         this.model = model;
-        this.gameLogic = new GameLogicModel(model);
+        this.gameLogic = gameLogic;
         setPreferredSize(new Dimension(
                 CELL_SIZE * (ChessBoardModel.getCols() - 1) + MARGIN * 2,
                 CELL_SIZE * (ChessBoardModel.getRows() - 1) + MARGIN * 2
@@ -182,6 +182,8 @@ public class ChessBoardPanel extends JPanel {
             }
         }
     }
+
+    
 
     /**
      * 绘制棋盘
