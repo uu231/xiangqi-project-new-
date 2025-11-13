@@ -55,7 +55,6 @@ public class ChessBoardPanel extends JPanel {
             return;
         }
 
-        // 委托给逻辑层处理
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
         
         if (selectedPiece == null) {
@@ -70,7 +69,9 @@ public class ChessBoardPanel extends JPanel {
                 // 移动成功
                 repaint();     
                 // 检查游戏是否结束
-                gameLogic.checkGameOver();
+                if (checkGameOver()) {
+                    showGameOverDialog();
+                }
             } else {
                 // 移动失败（非法移动）
                 // 如果点击的是己方棋子，则切换选中
@@ -83,6 +84,42 @@ public class ChessBoardPanel extends JPanel {
             }
         }
     }
+
+    private void showGameOverDialog() {
+        GameLogicModel.GameState state = gameLogic.getGameState(); // 假设 gameLogic 有 getGameState
+        String winner = null;
+
+        if (state == GameLogicModel.GameState.BLACK_WIN) {
+            winner = "黑方获胜！";
+        } else if (state == GameLogicModel.GameState.RED_WIN) {
+            winner = "红方获胜！";
+        } else if (state == GameLogicModel.GameState.RED_WIN_NC) {
+            winner = "红方获胜！（困毙）";
+        } else if (state == GameLogicModel.GameState.BLACK_WIN_NC) {
+            winner = "黑方获胜！（困毙）";
+        }
+
+        if (winner != null) {
+            // 定义重启逻辑
+            Runnable restartAction = () -> {
+                gameLogic.restart(); 
+                repaint();
+            };
+            
+            // 显示游戏结束对话框
+            GameOverFrame.show(this, winner, restartAction);
+        }
+    }
+
+
+    public boolean checkGameOver() {
+        boolean currentPlayerIsRed = gameLogic.isRedTurn();
+        boolean canMove = gameLogic.hasAnyLegalMove(currentPlayerIsRed);
+        if (!canMove) {
+            return true;
+        }
+        return false;
+    }   
 
     /**
      * 获取某个棋子的所有合法移动位置

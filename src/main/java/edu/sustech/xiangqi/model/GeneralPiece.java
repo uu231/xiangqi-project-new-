@@ -22,47 +22,42 @@ public class GeneralPiece extends AbstractPiece {
         if (targetPiece != null && targetPiece.isRed() == this.isRed()) {
             return false; // 不能吃自己的棋子
         }
-        int rowDiff = targetRow - currentRow;
-        int colDiff = targetCol - currentCol;
-
-        // 将/帅的移动规则：
-        // 1. 只能走一步
-        // 2. 只能在九宫里走
-        if (isRed()) {
-            // 红方帅（向上走，row减小）
-
-            boolean onTheLeftMargin = currentCol == 3;
-            boolean onTheRightMargin = currentCol == 5;
-            boolean onTheTopMargin = currentRow == 7;
-            boolean onTheBottomMargin = currentRow == 9;
-            if (rowDiff == -1 && colDiff == 0 && !onTheTopMargin) {// 向上
-                return true;
-            } else if (rowDiff == 0 && colDiff == 1 && !onTheRightMargin) {//向右
-                return true;
-            } else if (rowDiff == 0 && colDiff == -1 && !onTheLeftMargin) {//向左
-                return true;
-            } else if (rowDiff == 1 && colDiff == 0 && !onTheBottomMargin) {//向下
-                return true;
-            }
-            
+        if (Math.abs(targetRow - currentRow) + Math.abs(targetCol - currentCol) != 1) {
+            return false;
         } else {
-            // 黑方将（向下走，row增大）
-            boolean onTheLeftMargin = currentCol == 3;
-            boolean onTheRightMargin = currentCol == 5;
-            boolean onTheTopMargin = currentRow == 0;
-            boolean onTheBottomMargin = currentRow == 2;
-            if (rowDiff == 1 && colDiff == 0 && !onTheBottomMargin) {// 向下
-                return true;
-            } else if (rowDiff == 0 && colDiff == 1 && !onTheRightMargin) {//向右
-                return true;
-            } else if (rowDiff == 0 && colDiff == -1 && !onTheLeftMargin) {//向左
-                return true;
-            } else if (rowDiff == -1 && colDiff == 0 && !onTheTopMargin) {//向上
-                return true;
+            // 检查是否在九宫格内
+            if (isRed()) {
+                if (targetRow < 7 || targetCol < 3 || targetCol > 5) return false;
+            } else {
+                if (targetRow > 2 || targetCol < 3 || targetCol > 5) return false;
             }
         }
+        int row = -1;
+        int col = -1;//找到对面将/帅的位置
+        for (int r = 0; r < ChessBoardModel.getRows(); r++) {
+            for (int c = 0; c < ChessBoardModel.getCols(); c++) {
+                AbstractPiece piece = model.getPieceAt(r, c);
+                if (piece != null && isRed() && piece.getName().equals("将")) {
+                    row = r;
+                    col = c;
+                } else if (piece != null && !isRed() && piece.getName().equals("帅")) {
+                    row = r;
+                    col = c;
+                }
+            }
+        }
+        if (col == targetCol) {//如果要移动的目标点有碰面可能
+            int start = Math.min(targetRow, row) + 1;
+            int end = Math.max(targetRow, row);
+            for (int i = start; i < end; i++) {
+                AbstractPiece piece = model.getPieceAt(i, col);
+                if (piece != null) return true;
+            }
+            return false;
+        }
+
     
 
-        return false;
+        return true;
     }
 }
