@@ -8,7 +8,7 @@ public class GameOverFrame {
     /**
      * 创建一个游戏结束的对话框
      * @param parentFrame 父窗口，对话框将显示在它之上
-     * @param winner      获胜方信息，例如 "红方获胜！"
+     * @param winner      获胜方信息"
      * @param onRestart   一个 Runnable 对象，包含了点击“重来”按钮时要执行的逻辑
      */
     public static void show(Component parentFrame, String winner, Runnable onRestart) {

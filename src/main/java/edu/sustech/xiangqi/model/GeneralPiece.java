@@ -46,18 +46,21 @@ public class GeneralPiece extends AbstractPiece {
                 }
             }
         }
-        if (col == targetCol) {//如果要移动的目标点有碰面可能
+        if (col == targetCol) { // 如果目标位置和对方的将在同一列
             int start = Math.min(targetRow, row) + 1;
             int end = Math.max(targetRow, row);
+            boolean blocked = false; // 检查中间是否有棋子
             for (int i = start; i < end; i++) {
-                AbstractPiece piece = model.getPieceAt(i, col);
-                if (piece != null) return true;
+                if (model.getPieceAt(i, col) != null) {
+                    blocked = true;
+                    break;
+                }
             }
-            return false;
+            if (!blocked) {
+                return false; // 如果中间没有棋子格挡，则此移动非法
+            }
         }
-
-    
-
-        return true;
+        
+        return true; 
     }
 }

@@ -42,52 +42,66 @@ public class GameLogicModel {
     }
 
     public boolean tryMove(int targetRow, int targetCol) {
-        if (gameState != GameState.PLAYING) {
-            System.out.println("游戏已结束，不能再移动棋子。");
-            return false;
-        }
-        if (selectedPiece == null) {
-            return false;
-        }
-        // 1. 基础移动规则检查
-        if (!selectedPiece.canMoveTo(targetRow, targetCol, model)) {
-            return false;
-        }
-        // 2. 模拟移动，检查是否会导致自己被将军（“送将”）
-        int originalRow = selectedPiece.getRow();
-        int originalCol = selectedPiece.getCol();
-        AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
-        if (capturedPiece != null) {
-            model.getPieces().remove(capturedPiece);
-        }
-        selectedPiece.moveTo(targetRow, targetCol);
-        //  检查在模拟移动后，自己是否被将军
-        boolean willBeInCheck = isChecked(selectedPiece.isRed());
+            if (gameState != GameState.PLAYING) {
+                System.out.println("游戏已结束，不能再移动棋子。");
+                return false;
+            }
+            if (selectedPiece == null) {
+                return false;
+            }
+            // 1. 基础移动规则检查
+            if (!selectedPiece.canMoveTo(targetRow, targetCol, model)) {
+                return false;
+            }
+            
+            // 2. 模拟移动，检查是否会导致自己被将军（“送将”）
+            int originalRow = selectedPiece.getRow();
+            int originalCol = selectedPiece.getCol();
+            AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
+            if (capturedPiece != null) {
+                model.getPieces().remove(capturedPiece);
+            }
+            selectedPiece.moveTo(targetRow, targetCol);
+            
+            //  检查在模拟移动后，自己是否被将军
+            boolean willBeInCheck = isChecked(selectedPiece.isRed());
+            
+            // 是否会导致将帅碰面
+            boolean willFaceGenerals = isGeneralFacing();
 
-        selectedPiece.moveTo(originalRow, originalCol);
-        if (capturedPiece != null) {
-            model.getPieces().add(capturedPiece);
-        }
-        //  如果模拟移动会导致自己被将军，则此移动非法
-        if (willBeInCheck) {
-            System.out.println("非法移动：不能送将！");
-            return false;
-        }
-        AbstractPiece pieceToMove = selectedPiece;//记录移动
-        int fromRow = pieceToMove.getRow();
-        int fromCol = pieceToMove.getCol();
-        AbstractPiece pieceToCapture = model.getPieceAt(targetRow, targetCol);
-        Move move = new Move(pieceToMove, fromRow, fromCol, targetRow, targetCol, pieceToCapture);
-        // 3. 如果所有检查都通过，执行真正的移动
-        boolean moved = model.movePiece(selectedPiece, targetRow, targetCol);
-        if (moved) {
-            moveHistory.push(move);
-            selectedPiece = null;
+            // 恢复棋盘
+            selectedPiece.moveTo(originalRow, originalCol);
+            if (capturedPiece != null) {
+                model.getPieces().add(capturedPiece);
+            }
 
-            changeTurn();
-            checkAndUpdateGameState();
-        }
-        return moved;
+            //  如果模拟移动会导致自己被将军，则此移动非法
+            if (willBeInCheck) {
+                System.out.println("非法移动：不能送将！");
+                return false;
+            }
+            
+            // 如果模拟移动会导致将帅碰面，则此移动非法
+            if (willFaceGenerals) {
+                System.out.println("非法移动：不能让将帅碰面！");
+                return false;
+            }
+
+            AbstractPiece pieceToMove = selectedPiece;//记录移动
+            int fromRow = pieceToMove.getRow();
+            int fromCol = pieceToMove.getCol();
+            AbstractPiece pieceToCapture = model.getPieceAt(targetRow, targetCol);
+            Move move = new Move(pieceToMove, fromRow, fromCol, targetRow, targetCol, pieceToCapture);
+            // 3. 如果所有检查都通过，执行真正的移动
+            boolean moved = model.movePiece(selectedPiece, targetRow, targetCol);
+            if (moved) {
+                moveHistory.push(move);
+                selectedPiece = null;
+
+                changeTurn();
+                checkAndUpdateGameState();
+            }
+            return moved;
     }
 
     public boolean undoMove() {//悔棋逻辑
@@ -123,6 +137,49 @@ public class GameLogicModel {
                 gameState = redTurn ? GameState.BLACK_WIN_NC : GameState.RED_WIN_NC;
             }
         }
+    }
+
+    /**
+     * 检查当前棋盘状态是否为“将帅碰面”
+     */
+    private boolean isGeneralFacing() {
+        AbstractPiece redGeneral = null;
+        AbstractPiece blackGeneral = null;
+
+        // 找到将和帅
+        for (AbstractPiece piece : model.getPieces()) {
+            if (piece.getName().equals("帅")) {
+                redGeneral = piece;
+            } else if (piece.getName().equals("将")) {
+                blackGeneral = piece;
+            }
+            if (redGeneral != null && blackGeneral != null) {
+                break;
+            }
+        }
+
+        if (redGeneral == null || blackGeneral == null) {
+            return false; // 游戏异常状态
+        }
+
+        // 检查是否在同一列
+        if (redGeneral.getCol() != blackGeneral.getCol()) {
+            return false;
+        }
+
+        // 检查中间是否有棋子
+        int commonCol = redGeneral.getCol();
+        int startRow = Math.min(redGeneral.getRow(), blackGeneral.getRow()) + 1;
+        int endRow = Math.max(redGeneral.getRow(), blackGeneral.getRow());
+
+        for (int r = startRow; r < endRow; r++) {
+            if (model.getPieceAt(r, commonCol) != null) {
+                return false; // 被阻挡
+            }
+        }
+
+        // 在同一列且中间无阻挡
+        return true;
     }
 
     public boolean isChecked(boolean isRed) {
@@ -175,33 +232,33 @@ public class GameLogicModel {
     }
 
     private boolean isMoveLegal(AbstractPiece piece, int targetRow, int targetCol) {
-            // a. 基础规则检查
-            if (!piece.canMoveTo(targetRow, targetCol, model)) {
-                return false;
-            }
-
-            // b. 模拟移动
-            int originalRow = piece.getRow();
-            int originalCol = piece.getCol();
-            AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
-
-            if (capturedPiece != null) {
-                model.getPieces().remove(capturedPiece);
-            }
-            piece.moveTo(targetRow, targetCol);
-
-            // c. 检查自己是否被将军
-            boolean inCheck = isChecked(piece.isRed());
-
-            // d. 恢复棋盘
-            piece.moveTo(originalRow, originalCol);
-            if (capturedPiece != null) {
-                model.getPieces().add(capturedPiece);
-            }
-
-            // e. 如果移动后不会被将军，则移动合法
-            return !inCheck;
+        if (!piece.canMoveTo(targetRow, targetCol, model)) {
+            return false;
         }
+
+        int originalRow = piece.getRow();
+        int originalCol = piece.getCol();
+        AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
+
+        if (capturedPiece != null) {
+            model.getPieces().remove(capturedPiece);
+        }
+        piece.moveTo(targetRow, targetCol);
+
+        // 检查自己是否被将军
+        boolean inCheck = isChecked(piece.isRed());
+
+        boolean facing = isGeneralFacing();
+
+        // 恢复棋盘
+        piece.moveTo(originalRow, originalCol);
+        if (capturedPiece != null) {
+            model.getPieces().add(capturedPiece);
+        }
+
+        // 如果移动后不会被将军，则移动合法
+        return !inCheck && !facing;
+    }
 
 
    
