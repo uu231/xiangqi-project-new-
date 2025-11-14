@@ -14,25 +14,27 @@ import java.util.ArrayList;
 public class ChessBoardPanel extends JPanel {
     private final ChessBoardModel model;
     private final GameLogicModel gameLogic;
+    private Image boardImage;
 
     /**
      * 单个棋盘格子的尺寸（px）
      */
-    private static final int CELL_SIZE = 64;
+    private static final int CELL_SIZE = 65;
 
     /**
      * 棋盘边界与窗口边界的边距
      */
-    private static final int MARGIN = 40;
+    private static final int MARGIN = 38;
 
     /**
      * 棋子的半径
      */
-    private static final int PIECE_RADIUS = 25;
+    private static final int PIECE_RADIUS = 32;
 
     public ChessBoardPanel(ChessBoardModel model, GameLogicModel gameLogic) {
         this.model = model;
         this.gameLogic = gameLogic;
+        this.boardImage = ImageLoader.loadImage("WOOD.GIF");
         setPreferredSize(new Dimension(
                 CELL_SIZE * (ChessBoardModel.getCols() - 1) + MARGIN * 2,
                 CELL_SIZE * (ChessBoardModel.getRows() - 1) + MARGIN * 2
@@ -147,7 +149,7 @@ public class ChessBoardPanel extends JPanel {
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        drawBoard(g2d);
+        if (boardImage != null) g2d.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
         drawPieces(g2d);
         
         // 如果有选中的棋子，高亮所有合法移动位置
@@ -178,66 +180,61 @@ public class ChessBoardPanel extends JPanel {
                 g.setColor(new Color(255, 0, 0, 100));
                 g.setStroke(new BasicStroke(3));
                 g.drawOval(x - PIECE_RADIUS - 5, y - PIECE_RADIUS - 5, 
-                          (PIECE_RADIUS + 5) * 2, (PIECE_RADIUS + 5) * 2);
+                          (PIECE_RADIUS) * 2-3, (PIECE_RADIUS) * 2-3);
             }
         }
     }
 
-    
-
     /**
-     * 绘制棋盘
+     * 根据棋子获取对应的图片
      */
-    private void drawBoard(Graphics2D g) {
-        g.setColor(Color.BLACK);
-        g.setStroke(new BasicStroke(2));
+    private Image getImageForPiece(AbstractPiece piece) {
+        String name = piece.getName();
+        boolean isRed = piece.isRed();
+        String imageName = "";
 
-        // 绘制横线
-        for (int i = 0; i < ChessBoardModel.getRows(); i++) {
-            int y = MARGIN + i * CELL_SIZE;
-            g.drawLine(MARGIN, y, MARGIN + (ChessBoardModel.getCols() - 1) * CELL_SIZE, y);
-        }
+        if (name.equals("帅")) imageName = "r_j";
+        else if (name.equals("将")) imageName = "b_j";
+        else if (name.equals("车") && isRed) imageName = "r_c";
+        else if (name.equals("车") && !isRed) imageName = "b_c";
+        else if (name.equals("马") && isRed) imageName = "r_m";
+        else if (name.equals("马") && !isRed) imageName = "b_m";
+        else if (name.equals("相")) imageName = "r_x";
+        else if (name.equals("象")) imageName = "b_x";
+        else if (name.equals("仕")) imageName = "r_s";
+        else if (name.equals("士")) imageName = "b_s";
+        else if (name.equals("炮") && isRed) imageName = "r_p";
+        else if (name.equals("炮") && !isRed) imageName = "b_p";
+        else if (name.equals("兵")) imageName = "r_z";
+        else if (name.equals("卒")) imageName = "b_z";
 
-        // 绘制竖线
-        for (int i = 0; i < ChessBoardModel.getCols(); i++) {
-            int x = MARGIN + i * CELL_SIZE;
-            if (i == 0 || i == ChessBoardModel.getCols() - 1) {
-                g.drawLine(x, MARGIN, x, MARGIN + (ChessBoardModel.getRows() - 1) * CELL_SIZE);
-            } else {
-                g.drawLine(x, MARGIN, x, MARGIN + 4 * CELL_SIZE);
-                g.drawLine(x, MARGIN + 5 * CELL_SIZE, x, MARGIN + (ChessBoardModel.getRows() - 1) * CELL_SIZE);
-            }
-        }
 
-        // 绘制"楚河"和"汉界"
-        g.setColor(Color.BLACK);
-        g.setFont(new Font("楷体", Font.BOLD, 24));
-
-        int riverY = MARGIN + 4 * CELL_SIZE + CELL_SIZE / 2;
-
-        String chuHeText = "楚河";
-        FontMetrics fm = g.getFontMetrics();
-        int chuHeWidth = fm.stringWidth(chuHeText);
-        g.drawString(chuHeText, MARGIN + CELL_SIZE * 2 - chuHeWidth / 2, riverY + 8);
-
-        String hanJieText = "汉界";
-        int hanJieWidth = fm.stringWidth(hanJieText);
-        g.drawString(hanJieText, MARGIN + CELL_SIZE * 6 - hanJieWidth / 2, riverY + 8);
+        return ImageLoader.loadImage(imageName + ".png");
     }
 
-    /**
-     * 绘制棋子
-     */
+
     private void drawPieces(Graphics2D g) {
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
+        
         for (AbstractPiece piece : model.getPieces()) {
 
             int x = MARGIN + piece.getCol() * CELL_SIZE;
             int y = MARGIN + piece.getRow() * CELL_SIZE;
-
             boolean isSelected = (piece == selectedPiece);
 
-            // 绘制棋子背景
+            drawSinglePiece(g, piece, x, y, isSelected);
+        }
+    }
+
+    private void drawSinglePiece(Graphics2D g, AbstractPiece piece, int x, int y, boolean isSelected) {
+        
+        Image img = getImageForPiece(piece);
+        int imgSize = PIECE_RADIUS * 2; // 棋子直径
+        
+        if (img != null) {
+            // 绘制图片
+            g.drawImage(img, x - PIECE_RADIUS+3, y - PIECE_RADIUS+1, imgSize+1, imgSize, this);
+        } else {
             g.setColor(new Color(245, 222, 179));
             g.fillOval(x - PIECE_RADIUS, y - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
             
@@ -263,11 +260,13 @@ public class ChessBoardPanel extends JPanel {
             int textHeight = fm.getAscent();
             g.drawString(piece.getName(), x - textWidth / 2, y + textHeight / 2 - 2);
         }
+
+        // 绘制选中框 (保持不变)
+        if (isSelected) {
+            drawCornerBorders(g, x, y);
+        }
     }
 
-    /**
-     * 绘制选中棋子时的蓝色外边框效果
-     */
     private void drawCornerBorders(Graphics2D g, int centerX, int centerY) {
         g.setColor(new Color(0, 100, 255));
         g.setStroke(new BasicStroke(3));
