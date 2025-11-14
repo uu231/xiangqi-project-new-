@@ -38,7 +38,7 @@ public class ControlPanel extends JPanel {
         JButton restartButton = new JButton("重新开始");
         JButton surrenderButton = new JButton("投降");
 
-        // 样式设置
+        // 样式设置 1
         Font buttonFont = new Font("宋体", Font.BOLD, 16);
         undoButton.setFont(buttonFont);
         restartButton.setFont(buttonFont);
