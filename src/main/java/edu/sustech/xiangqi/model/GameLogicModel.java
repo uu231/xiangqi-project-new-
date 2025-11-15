@@ -260,7 +260,12 @@ public class GameLogicModel {
         return !inCheck && !facing;
     }
 
-
+    public Move getLastMove() {
+        if (moveHistory.isEmpty()) {
+            return null;
+        }
+        return moveHistory.peek();
+    }
    
     public void cancelSelection() {
         selectedPiece = null;

@@ -3,6 +3,7 @@ package edu.sustech.xiangqi.ui;
 import edu.sustech.xiangqi.model.ChessBoardModel;
 import edu.sustech.xiangqi.model.AbstractPiece;
 import edu.sustech.xiangqi.model.GameLogicModel;
+import edu.sustech.xiangqi.model.Move;
 
 import javax.swing.*;
 import java.awt.*;
@@ -150,12 +151,16 @@ public class ChessBoardPanel extends JPanel {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         if (boardImage != null) g2d.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
+        
         drawPieces(g2d);
         
         // 如果有选中的棋子，高亮所有合法移动位置
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
         if (selectedPiece != null) {
             drawValidMoveHints(g2d, selectedPiece);
+        }
+        if (gameLogic.getLastMove() != null) {
+            drawLastMoveHints(g2d);
         }
     }
 
@@ -179,10 +184,35 @@ public class ChessBoardPanel extends JPanel {
                 // 敌方棋子：画半透明的圆圈
                 g.setColor(new Color(255, 0, 0, 100));
                 g.setStroke(new BasicStroke(3));
-                g.drawOval(x - PIECE_RADIUS - 5, y - PIECE_RADIUS - 5, 
+                g.drawOval(x - PIECE_RADIUS - 1, y - PIECE_RADIUS - 3, 
                           (PIECE_RADIUS) * 2-3, (PIECE_RADIUS) * 2-3);
             }
         }
+    }
+
+    /**
+     * 绘制上一步move
+     */
+    private void drawLastMoveHints(Graphics2D g) {
+        Move lastMove = gameLogic.getLastMove();
+        if (lastMove == null) return; 
+
+        int fromX = MARGIN + lastMove.getFromCol() * CELL_SIZE;
+        int fromY = MARGIN + lastMove.getFromRow() * CELL_SIZE;
+        
+        AbstractPiece movedPiece = lastMove.getMovedPiece();
+        int toX = MARGIN + movedPiece.getCol() * CELL_SIZE;
+        int toY = MARGIN + movedPiece.getRow() * CELL_SIZE;
+        
+        // 在起始点画半透明的小圆点
+        g.setColor(new Color(255, 255, 255, 200));
+        g.fillOval(fromX - 8, fromY - 8, 16, 16);
+
+        // 在结束点画半透明的圆圈
+        g.setColor(new Color(255, 255, 255, 200));
+        g.setStroke(new BasicStroke(3));
+        g.drawOval(toX - PIECE_RADIUS-1, toY - PIECE_RADIUS-3, 
+                    PIECE_RADIUS * 2-3, PIECE_RADIUS * 2-3);    
     }
 
     /**
