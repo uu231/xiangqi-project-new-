@@ -7,7 +7,7 @@ import java.awt.*;
 
 /**
  * 简单的欢迎界面，提供本地对战/人机对战入口，背景为一张图片。
- * 不继承 JFrame，通过组合方式管理窗口。
+ * 
  */
 public class WelcomeFrame {
 
@@ -65,7 +65,7 @@ public class WelcomeFrame {
                     }
                     int x = (panelWidth - drawWidth) / 2;
                     int y = (panelHeight - drawHeight) / 2;
-                    g.drawImage(finalTitleImage, x, y, drawWidth, drawHeight, this);
+                    g.drawImage(finalTitleImage, x+6, y, drawWidth, drawHeight, this);
                 }
             };
         } else {
