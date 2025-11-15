@@ -22,7 +22,7 @@ public class UserPanel extends JPanel {
         this.isTopPanel = isTopPanel;
         this.gameLogic = gameLogic;
         this.boardPanel = boardPanel;
-        this.panelImage = ImageLoader.loadImage("bg.jpg");
+        this.panelImage = ImageLoader.loadImage("bg1.jpg");
 
 
         initComponents();
@@ -132,7 +132,19 @@ public class UserPanel extends JPanel {
                 size.width = 150; 
                 return size;
             }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setColor(new Color(94, 58, 30, 230)); 
+                g2d.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2d.dispose();
+            }
         };
+
+        popup.setOpaque(false);
+        popup.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         int iconSize = 20;
         
@@ -204,12 +216,20 @@ public class UserPanel extends JPanel {
         });
 
         popup.add(undoItem);
-        popup.addSeparator(); // 分割线
+        popup.add(createCustomSeparator());
         popup.add(restartItem);
         popup.add(surrenderItem);
 
         // 在按钮下方显示
         popup.show(invoker, 0, invoker.getHeight());
+    }
+
+    private JSeparator createCustomSeparator() {
+        JSeparator separator = new JSeparator();
+        // 使用一个较亮的棕色作为分割线颜色
+        separator.setForeground(new Color(143, 98, 63, 200));
+        separator.setBackground(new Color(143, 98, 63, 200));
+        return separator;
     }
 
     @Override

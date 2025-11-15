@@ -18,7 +18,6 @@ public class XiangqiApplication {
             ChessBoardModel model = new ChessBoardModel();
             GameLogicModel gameLogic = new GameLogicModel(model);
             ChessBoardPanel boardPanel = new ChessBoardPanel(model, gameLogic);
-            //ControlPanel controlPanel = new ControlPanel(gameLogic, boardPanel);//控制面板
             UserPanel topUserPanel = new UserPanel("黑方 (电脑/对手)", true, gameLogic, boardPanel);
             UserPanel bottomUserPanel = new UserPanel("红方 (我)", false, gameLogic, boardPanel);
 
@@ -27,8 +26,9 @@ public class XiangqiApplication {
             frame.add(bottomUserPanel, BorderLayout.SOUTH); // 底部
             frame.pack();
             frame.setLocationRelativeTo(null);
-            frame.setVisible(true);
-            //LoginFrame login = new LoginFrame(frame);
+
+            LoginFrame login = new LoginFrame(frame);
+
            
         });
     }

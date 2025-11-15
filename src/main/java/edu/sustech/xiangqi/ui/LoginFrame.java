@@ -51,8 +51,13 @@ public class LoginFrame {
                     "登录成功! 欢迎, admin!", 
                     "登录结果", 
                     JOptionPane.INFORMATION_MESSAGE
-                );
-                frame.setVisible(true);
+                );                
+
+                Runnable localBattleAction = () -> {
+                    frame.setVisible(true);
+                };
+                WelcomeFrame welcome = new WelcomeFrame(localBattleAction);
+                welcome.show();
                 window.dispose(); 
                 
             } else {

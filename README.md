@@ -32,6 +32,7 @@ mvn exec:java -Dexec.mainClass="edu.sustech.xiangqi.XiangqiApplication"
 
 ### 2024-11-15
 -  对控制面板进一步美化，实现默认头像及汉堡菜单
+-  加入导航页面
 
 
 ## 🎯 功能特性
