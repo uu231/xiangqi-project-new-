@@ -15,14 +15,6 @@ public class WelcomeFrame {
 	private final Runnable localBattleAction;
 	private final Runnable aiBattleAction;
 
-	public WelcomeFrame() {
-		this(null, null);
-	}
-
-	public WelcomeFrame(Runnable localBattleAction) {
-		this(localBattleAction, null);
-	}
-
 	public WelcomeFrame(Runnable localBattleAction, Runnable aiBattleAction) {
 		this.localBattleAction = localBattleAction;
 		this.aiBattleAction = aiBattleAction;
@@ -94,7 +86,7 @@ public class WelcomeFrame {
 		JButton localButton = createPrimaryButton("本地对战");
 		localButton.addActionListener(e -> handleLocalBattle());
 
-		JButton aiButton = createSecondaryButton("人机对战（暂未开放）");
+		JButton aiButton = createSecondaryButton("人机对战");
 		aiButton.addActionListener(e -> handleAiBattle());
 
 		buttonPanel.add(Box.createVerticalStrut(30));
@@ -105,7 +97,7 @@ public class WelcomeFrame {
 
 		JLabel tipLabel = new JLabel("棋逢对手，邀君入局", SwingConstants.CENTER);
 		tipLabel.setFont(new Font("仿宋", Font.ITALIC, 16));
-		tipLabel.setForeground(new Color(120, 90, 55));
+		tipLabel.setForeground(new Color(170, 90, 55));
 
 		backgroundPanel.add(titlePanel, BorderLayout.NORTH);
 		backgroundPanel.add(buttonPanel, BorderLayout.CENTER);
@@ -125,13 +117,18 @@ public class WelcomeFrame {
 
 	private void handleLocalBattle() {
 		window.dispose();
-		Runnable runnable = localBattleAction != null ? localBattleAction : this::launchDefaultLocalBattle;
-		runnable.run();
+		if (localBattleAction != null) {
+			localBattleAction.run(); // 运行来自 XiangqiApplication 的逻辑
+		} else {
+			// 保留默认启动方式
+			launchDefaultLocalBattle();
+		}
 	}
 
 	private void handleAiBattle() {
 		if (aiBattleAction != null) {
-			aiBattleAction.run();
+			window.dispose(); // 先关闭窗口
+			aiBattleAction.run(); // 运行来自 XiangqiApplication 的AI启动逻辑
 		} else {
 			JOptionPane.showMessageDialog(window,
 					"人机对战模式正在开发中，敬请期待！",
@@ -151,7 +148,10 @@ public class WelcomeFrame {
 		button.setForeground(Color.WHITE);
 		button.setBackground(new Color(143, 90, 52));
 		button.setFocusPainted(false);
-		button.setBorder(BorderFactory.createEmptyBorder(14, 24, 14, 24));
+		button.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(new Color(196, 172, 148)),
+				BorderFactory.createEmptyBorder(12, 22, 12, 22)
+		));
 		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		return button;
 	}
@@ -159,9 +159,9 @@ public class WelcomeFrame {
 	private JButton createSecondaryButton(String text) {
 		JButton button = new JButton(text);
 		button.setAlignmentX(Component.CENTER_ALIGNMENT);
-		button.setFont(new Font("微软雅黑", Font.PLAIN, 16));
-		button.setForeground(new Color(92, 54, 31));
-		button.setBackground(new Color(255, 255, 255, 220));
+		button.setFont(new Font("微软雅黑", Font.BOLD, 20));
+		button.setForeground(Color.WHITE);
+		button.setBackground(new Color(143, 90, 52));
 		button.setFocusPainted(false);
 		button.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createLineBorder(new Color(196, 172, 148)),

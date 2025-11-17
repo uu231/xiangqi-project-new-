@@ -16,6 +16,17 @@ public class ChessBoardPanel extends JPanel {
     private final ChessBoardModel model;
     private final GameLogicModel gameLogic;
     private Image boardImage;
+    private Image selectFrameImage;
+
+    private AIEngine aiEngine;
+    private boolean isAIGame = false; // 游戏模式
+    private boolean boardEnabled = true; // 控制棋盘是否可点击
+    private boolean isAISimulating = false;
+
+    /** 存储AI思考时，界面应该显示的棋子列表快照 */
+    private List<AbstractPiece> piecesSnapshotForAI = null;
+    /** 存储AI思考时，界面应该显示的上一步移动快照 */
+    private Move lastMoveSnapshotForAI = null;
 
     /**
      * 单个棋盘格子的尺寸（px）
@@ -36,6 +47,8 @@ public class ChessBoardPanel extends JPanel {
         this.model = model;
         this.gameLogic = gameLogic;
         this.boardImage = ImageLoader.loadImage("WOOD.GIF");
+        this.selectFrameImage = ImageLoader.loadImage("r_box.png");
+        this.aiEngine = new AIEngine(this.gameLogic, this, 4);
         setPreferredSize(new Dimension(
                 CELL_SIZE * (ChessBoardModel.getCols() - 1) + MARGIN * 2,
                 CELL_SIZE * (ChessBoardModel.getRows() - 1) + MARGIN * 2
@@ -51,6 +64,16 @@ public class ChessBoardPanel extends JPanel {
     }
 
     private void handleMouseClick(int x, int y) {
+        // 如果棋盘被禁用 (AI正在思考)，则不响应
+        if (!boardEnabled) {
+            return;
+        }
+
+        // 如果是AI局，且轮到黑方(AI)走棋，则不响应
+        if (isAIGame && !gameLogic.isRedTurn()) {
+            return;
+        }
+
         int col = Math.round((float)(x - MARGIN) / CELL_SIZE);
         int row = Math.round((float)(y - MARGIN) / CELL_SIZE);
 
@@ -59,25 +82,32 @@ public class ChessBoardPanel extends JPanel {
         }
 
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
-        
+
         if (selectedPiece == null) {
             // 尝试选中棋子
             if (gameLogic.selectPiece(row, col)) {
-                // 选中成功，刷新界面
                 repaint();
             }
         } else {
             // 尝试移动
             if (gameLogic.tryMove(row, col)) {
-                // 移动成功
                 repaint();     
+
                 // 检查游戏是否结束
                 if (checkGameOver()) {
                     showGameOverDialog();
+                } else if (isAIGame && !gameLogic.isRedTurn()) {
+                    // 拍摄快照
+                    // 必须在AI启动前，复制一份当前的棋子列表
+                    this.piecesSnapshotForAI = new ArrayList<>(model.getPieces());
+                    // 必须在AI启动前，获取最后一步（即玩家刚走的这一步）
+                    this.lastMoveSnapshotForAI = gameLogic.getLastMove();
+
+                    // 如果是AI局，且轮到AI(黑方)走棋
+                    aiEngine.performComputerMove();
                 }
             } else {
                 // 移动失败（非法移动）
-                // 如果点击的是己方棋子，则切换选中
                 if (gameLogic.selectPiece(row, col)) {
                     repaint();
                 } else {
@@ -88,7 +118,23 @@ public class ChessBoardPanel extends JPanel {
         }
     }
 
-    private void showGameOverDialog() {
+    private void drawPiecesFromList(Graphics2D g, List<AbstractPiece> pieces) {
+        if (pieces == null) return;
+        
+        // 遍历快照副本，防止线程冲突
+        for (AbstractPiece piece : pieces) { 
+            int x = MARGIN + piece.getCol() * CELL_SIZE;
+            int y = MARGIN + piece.getRow() * CELL_SIZE;
+            drawSinglePiece(g, piece, x, y, false);
+        }
+    }
+
+    public void clearAIPiecesSnapshot() {
+        this.piecesSnapshotForAI = null;
+        this.lastMoveSnapshotForAI = null;
+    }
+
+    public void showGameOverDialog() {
         GameLogicModel.GameState state = gameLogic.getGameState(); // 假设 gameLogic 有 getGameState
         String winner = null;
 
@@ -116,13 +162,9 @@ public class ChessBoardPanel extends JPanel {
 
 
     public boolean checkGameOver() {
-        boolean currentPlayerIsRed = gameLogic.isRedTurn();
-        boolean canMove = gameLogic.hasAnyLegalMove(currentPlayerIsRed);
-        if (!canMove) {
-            return true;
-        }
-        return false;
-    }   
+        // (新) 我们让 gameLogic 检查并更新状态
+        return gameLogic.checkAndUpdateGameState();
+    }
 
     /**
      * 获取某个棋子的所有合法移动位置
@@ -150,18 +192,58 @@ public class ChessBoardPanel extends JPanel {
         Graphics2D g2d = (Graphics2D) g;
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+        // 绘制棋盘背景
         if (boardImage != null) g2d.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
         
-        drawPieces(g2d);
-        
-        // 如果有选中的棋子，高亮所有合法移动位置
+        // 获取当前选中的棋子
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
-        if (selectedPiece != null) {
-            drawValidMoveHints(g2d, selectedPiece);
+        
+        if (isAISimulating) {
+            // 1. AI 正在思考：绘制【快照】中的棋子
+            drawPiecesFromList(g2d, this.piecesSnapshotForAI);
+
+            // 2. 绘制半透明遮罩
+            g2d.setColor(new Color(0, 0, 0, 100)); // 半透明黑色
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+            
+            // 3. 使用【快照】中的 lastMove 在遮罩上重新绘制提示
+            if (this.lastMoveSnapshotForAI != null) {
+                AbstractPiece piece = this.lastMoveSnapshotForAI.getMovedPiece();
+                int x = MARGIN + piece.getCol() * CELL_SIZE;
+                int y = MARGIN + piece.getRow() * CELL_SIZE;
+                
+                // 重新绘制这个棋子 (不带选中框)
+                drawSinglePiece(g2d, piece, x, y, false);
+            
+                int fromX = MARGIN + this.lastMoveSnapshotForAI.getFromCol() * CELL_SIZE;
+                int fromY = MARGIN + this.lastMoveSnapshotForAI.getFromRow() * CELL_SIZE;
+                g.setColor(new Color(255, 255, 255, 200));
+                g.fillOval(fromX - 8, fromY - 8, 16, 16);
+            }
+            
+            // 4. 绘制 "思考中" 文字
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("微软雅黑", Font.BOLD, 24));
+            FontMetrics fm = g2d.getFontMetrics();
+            String text = "AI 正在思考...";
+            int textWidth = fm.stringWidth(text);
+            g2d.drawString(text, (getWidth() - textWidth) / 2, getHeight() / 2);
+
+        } else {
+            // AI 没在思考，正常绘制【实时】棋子
+            drawPieces(g2d); 
+            
+            // 正常绘制【实时】提示
+            Move lastMove = gameLogic.getLastMove(); // 获取实时的
+            
+            if (selectedPiece != null) {
+                drawValidMoveHints(g2d, selectedPiece);
+            }
+            if (lastMove != null) {
+                drawLastMoveHints(g2d);
+            }
         }
-        if (gameLogic.getLastMove() != null) {
-            drawLastMoveHints(g2d);
-        }
+
     }
 
     /**
@@ -245,8 +327,9 @@ public class ChessBoardPanel extends JPanel {
 
     private void drawPieces(Graphics2D g) {
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
+        List<AbstractPiece> piecesSnapshot = new ArrayList<>(model.getPieces());
         
-        for (AbstractPiece piece : model.getPieces()) {
+        for (AbstractPiece piece : piecesSnapshot) { // 遍历这个副本防止线程冲突
 
             int x = MARGIN + piece.getCol() * CELL_SIZE;
             int y = MARGIN + piece.getRow() * CELL_SIZE;
@@ -273,9 +356,14 @@ public class ChessBoardPanel extends JPanel {
             g.setStroke(new BasicStroke(2));
             g.drawOval(x - PIECE_RADIUS, y - PIECE_RADIUS, PIECE_RADIUS * 2, PIECE_RADIUS * 2);
 
-            // 如果被选中，绘制蓝色边框
-            if (isSelected) {
-                drawCornerBorders(g, x, y);
+
+            if (isSelected && selectFrameImage != null) {
+                // 让选择框比棋子稍大一点
+                int selectRadius = PIECE_RADIUS + 1; 
+                int selectSize = selectRadius * 2;
+                
+                // 以(x, y)为中心绘制选中框图片
+                g.drawImage(selectFrameImage, x - selectRadius, y - selectRadius, selectSize, selectSize, this);
             }
 
             // 绘制棋子文字
@@ -291,41 +379,44 @@ public class ChessBoardPanel extends JPanel {
             g.drawString(piece.getName(), x - textWidth / 2, y + textHeight / 2 - 2);
         }
 
-        // 绘制选中框 (保持不变)
-        if (isSelected) {
-            drawCornerBorders(g, x, y);
+        if (isSelected && selectFrameImage != null) {
+            // 让选择框比棋子稍大一点
+            int selectRadius = PIECE_RADIUS + 1; 
+            int selectSize = selectRadius * 2;
+            
+            // 以(x, y)为中心绘制选中框图片
+            g.drawImage(selectFrameImage, x - selectRadius, y - selectRadius, selectSize, selectSize, this);
         }
     }
 
-    private void drawCornerBorders(Graphics2D g, int centerX, int centerY) {
-        g.setColor(new Color(0, 100, 255));
-        g.setStroke(new BasicStroke(3));
-
-        int cornerSize = 32;
-        int lineLength = 12;
-
-        // 左上角
-        g.drawLine(centerX - cornerSize, centerY - cornerSize,
-                centerX - cornerSize + lineLength, centerY - cornerSize);
-        g.drawLine(centerX - cornerSize, centerY - cornerSize,
-                centerX - cornerSize, centerY - cornerSize + lineLength);
-
-        // 右上角
-        g.drawLine(centerX + cornerSize, centerY - cornerSize,
-                centerX + cornerSize - lineLength, centerY - cornerSize);
-        g.drawLine(centerX + cornerSize, centerY - cornerSize,
-                centerX + cornerSize, centerY + cornerSize - lineLength);
-
-        // 左下角
-        g.drawLine(centerX - cornerSize, centerY + cornerSize,
-                centerX - cornerSize + lineLength, centerY + cornerSize);
-        g.drawLine(centerX - cornerSize, centerY + cornerSize,
-                centerX - cornerSize, centerY + cornerSize - lineLength);
-
-        // 右下角
-        g.drawLine(centerX + cornerSize, centerY + cornerSize,
-                centerX + cornerSize - lineLength, centerY + cornerSize);
-        g.drawLine(centerX + cornerSize, centerY + cornerSize,
-                centerX + cornerSize, centerY + cornerSize - lineLength);
+    /**
+     * 设置游戏模式
+     */
+    public void setGameMode(boolean isAIGame) {
+        this.isAIGame = isAIGame;
+        // 切换模式时自动重启游戏
+        gameLogic.restart();
+        repaint();
     }
+
+
+    /**
+     * 设置棋盘是否响应点击
+     */
+    public void setBoardEnabled(boolean enabled) {
+        this.boardEnabled = enabled;
+    }
+
+    /**
+     * 设置 AI 是否正在模拟 (防止UI重绘)
+     */
+    public void setAISimulating(boolean simulating) {
+        this.isAISimulating = simulating;
+    }
+
+    public boolean isAIGame() {
+        return this.isAIGame;
+    }
+    
+
 }

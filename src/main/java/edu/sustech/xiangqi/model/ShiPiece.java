@@ -1,7 +1,7 @@
 package edu.sustech.xiangqi.model;
 
 /**
- * 士
+ * 士/仕
  */
 public class ShiPiece extends AbstractPiece {
 
@@ -11,60 +11,37 @@ public class ShiPiece extends AbstractPiece {
 
     @Override
     public boolean canMoveTo(int targetRow, int targetCol, ChessBoardModel model) {
-        // TODO: 实现士的移动规则
         int currentRow = getRow();
         int currentCol = getCol();
 
-        if (currentRow == targetRow && currentCol == targetCol) {
-            return false;
-        }
+        // 1. 检查目标位置是否有己方棋子
         AbstractPiece targetPiece = model.getPieceAt(targetRow, targetCol);
         if (targetPiece != null && targetPiece.isRed() == this.isRed()) {
-            return false; // 不能吃自己的棋子
+            return false;
         }
-        int rowDiff = targetRow - currentRow;
-        int colDiff = targetCol - currentCol;
 
-        // 仕的移动规则：
-        // 1. 只能走一步/斜向
-        // 2. 只能在九宫里走
+        // 2. 检查是否走斜线一步
+        if (Math.abs(targetRow - currentRow) != 1 || Math.abs(targetCol - currentCol) != 1) {
+            return false;
+        }
+
+        // 3. 检查目标位置是否在九宫格内
+        if (targetCol < 3 || targetCol > 5) {
+            return false;
+        }
+
         if (isRed()) {
-            // 红方仕（向上走，row减小）
-
-            boolean onTheLeftTopCorner = currentCol == 3 && currentRow == 7;
-            boolean onTheRightTopCorner = currentCol == 5 && currentRow == 7;
-            boolean onTheLeftBottomCorner = currentCol == 3 && currentRow == 9;
-            boolean onTheRightBottomCorner = currentCol == 5 && currentRow == 9;
-            boolean onTheMiddle = currentCol == 4 && currentRow == 8;
-            if (rowDiff == -1 && colDiff == -1 && (onTheRightBottomCorner || onTheMiddle)) {
-                return true;
-            } else if (rowDiff == -1 && colDiff == 1 && (onTheLeftBottomCorner || onTheMiddle)) {
-                return true;
-            } else if (rowDiff == 1 && colDiff == -1 && (onTheRightTopCorner || onTheMiddle)) {
-                return true;
-            } else if (rowDiff == 1 && colDiff == 1 && (onTheLeftTopCorner || onTheMiddle)) {
-                return true;
+            // 红方九宫 (row 7, 8, 9)
+            if (targetRow < 7 || targetRow > 9) {
+                return false;
             }
-            
         } else {
-            // 黑方仕（向下走，row增大）
-            boolean onTheLeftTopCorner = currentCol == 3 && currentRow == 0;
-            boolean onTheRightTopCorner = currentCol == 5 && currentRow == 0;
-            boolean onTheLeftBottomCorner = currentCol == 3 && currentRow == 2;
-            boolean onTheRightBottomCorner = currentCol == 5 && currentRow == 2;
-            boolean onTheMiddle = currentCol == 4 && currentRow == 1;
-            if (rowDiff == -1 && colDiff == -1 && (onTheRightBottomCorner || onTheMiddle)) {
-                return true;
-            } else if (rowDiff == -1 && colDiff == 1 && (onTheLeftBottomCorner || onTheMiddle)) {
-                return true;
-            } else if (rowDiff == 1 && colDiff == -1 && (onTheRightTopCorner || onTheMiddle)) {
-                return true;
-            } else if (rowDiff == 1 && colDiff == 1 && (onTheLeftTopCorner || onTheMiddle)) {
-                return true;
+            // 黑方九宫 (row 0, 1, 2)
+            if (targetRow < 0 || targetRow > 2) {
+                return false;
             }
         }
-    
 
-        return false;
+        return true;
     }
 }

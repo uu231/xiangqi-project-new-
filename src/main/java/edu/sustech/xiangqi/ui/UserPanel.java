@@ -179,8 +179,21 @@ public class UserPanel extends JPanel {
             undoItem.setIcon(undoIcon); 
         }
         undoItem.addActionListener(e -> {
-            if (gameLogic.undoMove()) {
-                boardPanel.repaint();
+            boolean undone;
+            // (新) 检查是否是 AI 游戏
+            if (boardPanel.isAIGame()) {
+                // 人机模式下，一次悔两步
+                undone = gameLogic.undoMove(); // 1. 悔棋 (AI 的一步)
+                if (undone) {
+                    gameLogic.undoMove(); // 2. 悔棋 (玩家的上一步)
+                }
+            } else {
+                // 本地对战，一次悔一步
+                undone = gameLogic.undoMove();
+            }
+
+            if (undone) {
+                boardPanel.repaint(); // 刷新棋盘
             } else {
                 JOptionPane.showMessageDialog(boardPanel, "无棋可悔");
             }

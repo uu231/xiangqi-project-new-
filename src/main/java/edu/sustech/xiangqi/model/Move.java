@@ -29,6 +29,14 @@ public class Move {
         return fromCol;
     }
 
+    public int getToRow() {
+        return toRow;
+    }
+
+    public int getToCol() {
+        return toCol;
+    }
+
     public AbstractPiece getEatPiece() {
         return eatPiece;
     }

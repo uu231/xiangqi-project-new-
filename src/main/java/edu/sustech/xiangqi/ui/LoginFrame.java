@@ -6,11 +6,11 @@ import java.util.Arrays;
 
 
 public class LoginFrame {
-    public LoginFrame(JFrame frame) {
-        initComponents(frame);
+    public LoginFrame(Runnable onLoginSuccess) {
+        initComponents(onLoginSuccess);
     }
 
-    private void initComponents(JFrame frame) {
+    private void initComponents(Runnable onLoginSuccess) {
         JFrame window = new JFrame("Login");
         window.setSize(350, 200);
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -53,12 +53,12 @@ public class LoginFrame {
                     JOptionPane.INFORMATION_MESSAGE
                 );                
 
-                Runnable localBattleAction = () -> {
-                    frame.setVisible(true);
-                };
-                WelcomeFrame welcome = new WelcomeFrame(localBattleAction);
-                welcome.show();
-                window.dispose(); 
+                // 调用成功回调
+                if (onLoginSuccess != null) {
+                    onLoginSuccess.run();
+                }
+
+                window.dispose();
                 
             } else {
                 // 4. 失败: 弹出错误框

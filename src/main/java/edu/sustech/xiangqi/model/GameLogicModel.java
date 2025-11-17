@@ -124,7 +124,7 @@ public class GameLogicModel {
         return true;
     }
 
-    private void checkAndUpdateGameState() {
+    public boolean checkAndUpdateGameState() {
         // 检查轮到走棋的一方是否还有合法的移动
         boolean canMove = hasAnyLegalMove(redTurn);
 
@@ -136,7 +136,10 @@ public class GameLogicModel {
                 // 没有被将军但无路可走 -> 困毙
                 gameState = redTurn ? GameState.BLACK_WIN_NC : GameState.RED_WIN_NC;
             }
+            return true; // 游戏结束
         }
+        gameState = GameState.PLAYING; // 确保游戏在悔棋后能继续
+        return false; // 游戏继续
     }
 
     /**
@@ -231,7 +234,7 @@ public class GameLogicModel {
 
     }
 
-    private boolean isMoveLegal(AbstractPiece piece, int targetRow, int targetCol) {
+    public boolean isMoveLegal(AbstractPiece piece, int targetRow, int targetCol) {
         if (!piece.canMoveTo(targetRow, targetCol, model)) {
             return false;
         }
@@ -291,6 +294,82 @@ public class GameLogicModel {
         // 重新初始化棋盘和游戏逻辑
         model.initializePieces(); // 假设 ChessBoardModel 有此方法来重置棋子
         initGame();
+        this.redTurn = true;
+        this.selectedPiece = null;
+    }
+
+    /**
+     * AI调用：获取当前回合方所有合法的走法
+     */
+    public List<Move> getAllLegalMoves(boolean isRedPlayer) {
+        List<Move> legalMoves = new ArrayList<>();
+        List<AbstractPiece> piecesCopy = new ArrayList<>(model.getPieces());
+
+        for (AbstractPiece piece : piecesCopy) {
+            if (piece.isRed() == isRedPlayer) {
+                for (int r = 0; r < ChessBoardModel.getRows(); r++) {
+                    for (int c = 0; c < ChessBoardModel.getCols(); c++) {
+                        // 使用 isMoveLegal 检查，它包含了防送将和防飞将
+                        if (isMoveLegal(piece, r, c)) {
+                            legalMoves.add(new Move(
+                                    piece,
+                                    piece.getRow(),
+                                    piece.getCol(),
+                                    r,
+                                    c,
+                                    model.getPieceAt(r, c)
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        return legalMoves;
+    }
+
+    /**
+     * AI调用：评估当前棋盘分数
+     * 正数代表红方优势，负数代表黑方优势
+     */
+    public int evaluateBoard() {
+        int totalScore = 0;
+        for (AbstractPiece piece : model.getPieces()) {
+            int value = getPieceValue(piece);
+            totalScore += (piece.isRed() ? value : -value);
+        }
+        return totalScore;
+    }
+
+    /**
+     * AI调用：获取单个棋子的基础价值
+     * (这是一个非常基础的估值, 你可以调整这些分数)
+     */
+    private int getPieceValue(AbstractPiece piece) {
+        if (piece == null) return 0;
+
+        // 基础分
+        int value = 0;
+        switch (piece.getName()) {
+            case "帅": case "将": value = 10000; break;
+            case "车": value = 900; break;
+            case "炮": value = 450; break;
+            case "马": value = 400; break;
+            case "相": case "象": value = 200; break;
+            case "仕": case "士": value = 200; break;
+            case "兵": value = 100; break;
+            case "卒": value = 100; break;
+        }
+
+        // 位置分 (简单示例)
+        if (piece.getName().equals("兵")) {
+            // 红兵过河
+            if (piece.isRed() && piece.getRow() < 5) value += 100;
+        } else if (piece.getName().equals("卒")) {
+            // 黑卒过河
+            if (!piece.isRed() && piece.getRow() > 4) value += 100;
+        }
+
+        return value;
     }
 
 }

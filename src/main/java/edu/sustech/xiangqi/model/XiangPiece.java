@@ -1,7 +1,7 @@
 package edu.sustech.xiangqi.model;
 
 /**
- * 象
+ * 象/相
  */
 public class XiangPiece extends AbstractPiece {
 
@@ -14,36 +14,36 @@ public class XiangPiece extends AbstractPiece {
         int currentRow = getRow();
         int currentCol = getCol();
 
-        if (currentRow == targetRow && currentCol == targetCol) {
-            return false;
-        }
+        // 1. 检查目标位置是否有己方棋子
         AbstractPiece targetPiece = model.getPieceAt(targetRow, targetCol);
         if (targetPiece != null && targetPiece.isRed() == this.isRed()) {
-            return false; // 不能吃自己的棋子
+            return false; 
         }
 
         int rowDiff = targetRow - currentRow;
-        int colDiff = Math.abs(targetCol - currentCol);
+        int colDiff = targetCol - currentCol;
 
-        // 象的移动规则：
-        // 1. 田字形
-        // 2. 不能过河
-        // 3. 不能别象眼
-        int midRowPosition = (currentRow+targetRow)/2;
-        int midColPosition = (currentCol+targetCol)/2;
-        AbstractPiece targetPiece1 = model.getPieceAt(midRowPosition, midColPosition);
-        if (targetPiece1 != null) {
+        // 2. 必须走 "田" 字 (斜走2格)
+        if (Math.abs(rowDiff) != 2 || Math.abs(colDiff) != 2) {
             return false;
         }
-        if (isRed()) {
-            // 红方象（向上走，row减小）
-            if (rowDiff == -2 && colDiff == 2 && targetRow >= 5) return true; 
-            return rowDiff == 2 && colDiff == 2;
-        } else {
-            // 黑方象（向下走，row增大）
-            if (rowDiff == 2 && colDiff == 2 && targetRow <= 4) return true;
-            return rowDiff == -2 && colDiff == 2;
+
+        // 3. 检查 "象眼" (田字中心) 是否被堵住
+        int midRow = currentRow + rowDiff / 2;
+        int midCol = currentCol + colDiff / 2;
+        if (model.getPieceAt(midRow, midCol) != null) {
+            return false; // 象眼被塞
         }
-        
+
+        // 4. 检查是否过河
+        if (isRed()) {
+            // 红方象 (row 5-9)
+            if (targetRow < 5) return false;
+        } else {
+            // 黑方象 (row 0-4)
+            if (targetRow > 4) return false;
+        }
+
+        return true;
     }
 }
