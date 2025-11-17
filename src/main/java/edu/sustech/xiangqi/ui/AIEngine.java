@@ -153,4 +153,24 @@ public class AIEngine {
             return bestValue;
         }
     }
+
+    // **** (新增) 辅助方法：通过坐标查找合法的 Move 对象 ****
+    private Move findMoveByCoords(int[] coords) {
+        int fromR = coords[0];
+        int fromC = coords[1];
+        int toR = coords[2];
+        int toC = coords[3];
+        
+        // 必须从当前所有合法走法中匹配，以确保走法合法
+        List<Move> legalMoves = gameLogic.getAllLegalMoves(gameLogic.isRedTurn());
+        for (Move move : legalMoves) {
+            AbstractPiece p = move.getMovedPiece();
+            if (p.getRow() == fromR && p.getCol() == fromC &&
+                move.getToRow() == toR && move.getToCol() == toC) {
+                return move;
+            }
+        }
+        System.err.println("开局库走法在当前局面不合法！");
+        return null; // 开局库走法不合法
+    }
 }

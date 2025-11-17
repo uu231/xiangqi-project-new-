@@ -97,14 +97,17 @@ public class ChessBoardPanel extends JPanel {
                 if (checkGameOver()) {
                     showGameOverDialog();
                 } else if (isAIGame && !gameLogic.isRedTurn()) {
-                    // 拍摄快照
-                    // 必须在AI启动前，复制一份当前的棋子列表
-                    this.piecesSnapshotForAI = new ArrayList<>(model.getPieces());
-                    // 必须在AI启动前，获取最后一步（即玩家刚走的这一步）
-                    this.lastMoveSnapshotForAI = gameLogic.getLastMove();
+                    // **** 使用 model 对象加锁 ****
+                    synchronized (model) {
+                        // 必须在AI启动前，复制一份当前的棋子列表
+                        this.piecesSnapshotForAI = new ArrayList<>(model.getPieces()); //
+                    } // **** 解锁 ****
 
-                    // 如果是AI局，且轮到AI(黑方)走棋
-                    aiEngine.performComputerMove();
+                    // 必须在AI启动前，获取最后一步（即玩家刚走的这一步）
+                    this.lastMoveSnapshotForAI = gameLogic.getLastMove(); //
+
+                    // (新) 如果是AI局，且轮到AI(黑方)走棋
+                    aiEngine.performComputerMove(); //
                 }
             } else {
                 // 移动失败（非法移动）
@@ -121,12 +124,15 @@ public class ChessBoardPanel extends JPanel {
     private void drawPiecesFromList(Graphics2D g, List<AbstractPiece> pieces) {
         if (pieces == null) return;
         
-        // 遍历快照副本，防止线程冲突
-        for (AbstractPiece piece : pieces) { 
-            int x = MARGIN + piece.getCol() * CELL_SIZE;
-            int y = MARGIN + piece.getRow() * CELL_SIZE;
-            drawSinglePiece(g, piece, x, y, false);
-        }
+        // **** 使用 model 对象加锁 ****
+        // 保护浅快照在绘制期间不被AI线程修改
+        synchronized (model) {
+            for (AbstractPiece piece : pieces) { 
+                int x = MARGIN + piece.getCol() * CELL_SIZE; //
+                int y = MARGIN + piece.getRow() * CELL_SIZE; //
+                drawSinglePiece(g, piece, x, y, false);
+            }
+        } // **** 解锁 ****
     }
 
     public void clearAIPiecesSnapshot() {
@@ -327,16 +333,21 @@ public class ChessBoardPanel extends JPanel {
 
     private void drawPieces(Graphics2D g) {
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
-        List<AbstractPiece> piecesSnapshot = new ArrayList<>(model.getPieces());
         
-        for (AbstractPiece piece : piecesSnapshot) { // 遍历这个副本防止线程冲突
+        // **** 使用 model 对象加锁 ****
+        // 保护实时绘制
+        List<AbstractPiece> piecesSnapshot;
+        synchronized (model) { 
+            piecesSnapshot = new ArrayList<>(model.getPieces()); //
+            
+            for (AbstractPiece piece : piecesSnapshot) { 
+                int x = MARGIN + piece.getCol() * CELL_SIZE; //
+                int y = MARGIN + piece.getRow() * CELL_SIZE; //
+                boolean isSelected = (piece == selectedPiece);
 
-            int x = MARGIN + piece.getCol() * CELL_SIZE;
-            int y = MARGIN + piece.getRow() * CELL_SIZE;
-            boolean isSelected = (piece == selectedPiece);
-
-            drawSinglePiece(g, piece, x, y, isSelected);
-        }
+                drawSinglePiece(g, piece, x, y, isSelected);
+            }
+        } // **** 解锁 ****
     }
 
     private void drawSinglePiece(Graphics2D g, AbstractPiece piece, int x, int y, boolean isSelected) {

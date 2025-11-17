@@ -3,6 +3,7 @@ package edu.sustech.xiangqi.model;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
+import java.util.Random;
 
 public class GameLogicModel {
     private boolean redTurn;
@@ -58,22 +59,27 @@ public class GameLogicModel {
             int originalRow = selectedPiece.getRow();
             int originalCol = selectedPiece.getCol();
             AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
-            if (capturedPiece != null) {
-                model.getPieces().remove(capturedPiece);
-            }
-            selectedPiece.moveTo(targetRow, targetCol);
-            
-            //  检查在模拟移动后，自己是否被将军
-            boolean willBeInCheck = isChecked(selectedPiece.isRed());
-            
-            // 是否会导致将帅碰面
-            boolean willFaceGenerals = isGeneralFacing();
+            boolean willBeInCheck;
+            boolean willFaceGenerals;
 
-            // 恢复棋盘
-            selectedPiece.moveTo(originalRow, originalCol);
-            if (capturedPiece != null) {
-                model.getPieces().add(capturedPiece);
-            }
+            // 使用 model 对象加锁
+            synchronized (model) {
+                if (capturedPiece != null) {
+                    model.removePiece(capturedPiece); 
+                }
+                selectedPiece.moveTo(targetRow, targetCol); 
+                
+                //  检查在模拟移动后，自己是否被将军
+                willBeInCheck = isChecked(selectedPiece.isRed()); 
+                // 是否会导致将帅碰面
+                willFaceGenerals = isGeneralFacing(); 
+
+                // 恢复棋盘
+                selectedPiece.moveTo(originalRow, originalCol); 
+                if (capturedPiece != null) {
+                    model.addPiece(capturedPiece); 
+                }
+            } // 解锁
 
             //  如果模拟移动会导致自己被将军，则此移动非法
             if (willBeInCheck) {
@@ -113,10 +119,14 @@ public class GameLogicModel {
         int currentRow = movedPiece.getRow();
         int currentCol = movedPiece.getCol();
         AbstractPiece eatPiece = lastMove.getEatPiece();
-        movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
-        if (eatPiece != null) {//如果有子被吃就恢复
-            model.getPieces().add(eatPiece);
-        }
+        // 使用 model 对象加锁
+        synchronized (model) {
+            movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
+            if (eatPiece != null) {//如果有子被吃就恢复
+                model.addPiece(eatPiece); //
+            }
+        } // 解锁
+        
         changeTurn();
 
         gameState = GameState.PLAYING;
@@ -243,21 +253,26 @@ public class GameLogicModel {
         int originalCol = piece.getCol();
         AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
 
-        if (capturedPiece != null) {
-            model.getPieces().remove(capturedPiece);
-        }
-        piece.moveTo(targetRow, targetCol);
+        boolean inCheck;
+        boolean facing;
 
-        // 检查自己是否被将军
-        boolean inCheck = isChecked(piece.isRed());
+        // 使用 model 对象加锁
+        synchronized (model) {
+            if (capturedPiece != null) {
+                model.removePiece(capturedPiece);
+            }
+            piece.moveTo(targetRow, targetCol);
 
-        boolean facing = isGeneralFacing();
+            // 检查自己是否被将军
+            inCheck = isChecked(piece.isRed());
+            facing = isGeneralFacing();
 
-        // 恢复棋盘
-        piece.moveTo(originalRow, originalCol);
-        if (capturedPiece != null) {
-            model.getPieces().add(capturedPiece);
-        }
+            // 恢复棋盘
+            piece.moveTo(originalRow, originalCol);
+            if (capturedPiece != null) {
+                model.addPiece(capturedPiece);
+            }
+        } // 解锁
 
         // 如果移动后不会被将军，则移动合法
         return !inCheck && !facing;
@@ -309,7 +324,7 @@ public class GameLogicModel {
             if (piece.isRed() == isRedPlayer) {
                 for (int r = 0; r < ChessBoardModel.getRows(); r++) {
                     for (int c = 0; c < ChessBoardModel.getCols(); c++) {
-                        // 使用 isMoveLegal 检查，它包含了防送将和防飞将
+                        // 使用 isMoveLegal 检查
                         if (isMoveLegal(piece, r, c)) {
                             legalMoves.add(new Move(
                                     piece,
@@ -328,12 +343,17 @@ public class GameLogicModel {
     }
 
     /**
-     * AI调用：评估当前棋盘分数
+     * AI调用：评估当前棋盘分数 (使用子力位置表)
      * 正数代表红方优势，负数代表黑方优势
      */
     public int evaluateBoard() {
         int totalScore = 0;
-        for (AbstractPiece piece : model.getPieces()) {
+        List<AbstractPiece> piecesCopy;
+        synchronized (model) {
+            piecesCopy = new ArrayList<>(model.getPieces());
+        }
+        
+        for (AbstractPiece piece : piecesCopy) {
             int value = getPieceValue(piece);
             totalScore += (piece.isRed() ? value : -value);
         }
@@ -341,35 +361,84 @@ public class GameLogicModel {
     }
 
     /**
-     * AI调用：获取单个棋子的基础价值
-     * (这是一个非常基础的估值, 你可以调整这些分数)
+     * AI调用：获取单个棋子的价值 (基础分 + 位置分)
+     * 
      */
     private int getPieceValue(AbstractPiece piece) {
         if (piece == null) return 0;
 
-        // 基础分
-        int value = 0;
-        switch (piece.getName()) {
-            case "帅": case "将": value = 10000; break;
-            case "车": value = 900; break;
-            case "炮": value = 450; break;
-            case "马": value = 400; break;
-            case "相": case "象": value = 200; break;
-            case "仕": case "士": value = 200; break;
-            case "兵": value = 100; break;
-            case "卒": value = 100; break;
-        }
+        int row = piece.getRow();
+        int col = piece.getCol();
+        int baseValue = 0;
+        int posValue = 0;
 
-        // 位置分 (简单示例)
-        if (piece.getName().equals("兵")) {
-            // 红兵过河
-            if (piece.isRed() && piece.getRow() < 5) value += 100;
-        } else if (piece.getName().equals("卒")) {
-            // 黑卒过河
-            if (!piece.isRed() && piece.getRow() > 4) value += 100;
+        if (piece.isRed()) {
+            // --- 红方 ---
+            switch (piece.getName()) {
+                case "帅": // r_j
+                    baseValue = EvaluationTables.GENERAL_VALUE;
+                    posValue = EvaluationTables.R_GENERAL[row][col];
+                    break;
+                case "车": // r_c
+                    baseValue = EvaluationTables.CAR_VALUE;
+                    posValue = EvaluationTables.R_CAR[row][col];
+                    break;
+                case "炮": // r_p
+                    baseValue = EvaluationTables.PAO_VALUE;
+                    posValue = EvaluationTables.R_PAO[row][col];
+                    break;
+                case "马": // r_m
+                    baseValue = EvaluationTables.MA_VALUE;
+                    posValue = EvaluationTables.R_MA[row][col];
+                    break;
+                case "相": // r_x
+                    baseValue = EvaluationTables.XIANG_VALUE;
+                    posValue = EvaluationTables.R_XIANG[row][col];
+                    break;
+                case "仕": // r_s
+                    baseValue = EvaluationTables.SHI_VALUE;
+                    posValue = EvaluationTables.R_SHI[row][col];
+                    break;
+                case "兵": // r_z
+                    baseValue = EvaluationTables.SOLDIER_VALUE;
+                    posValue = EvaluationTables.R_SOLDIER[row][col];
+                    break;
+            }
+        } else {
+            // --- 黑方 ---
+            switch (piece.getName()) {
+                case "将": // b_j
+                    baseValue = EvaluationTables.GENERAL_VALUE;
+                    posValue = EvaluationTables.B_GENERAL[row][col];
+                    break;
+                case "车": // b_c
+                    baseValue = EvaluationTables.CAR_VALUE;
+                    posValue = EvaluationTables.B_CAR[row][col];
+                    break;
+                case "炮": // b_p
+                    baseValue = EvaluationTables.PAO_VALUE;
+                    posValue = EvaluationTables.B_PAO[row][col];
+                    break;
+                case "马": // b_m
+                    baseValue = EvaluationTables.MA_VALUE;
+                    posValue = EvaluationTables.B_MA[row][col];
+                    break;
+                case "象": // b_x
+                    baseValue = EvaluationTables.XIANG_VALUE;
+                    posValue = EvaluationTables.B_XIANG[row][col];
+                    break;
+                case "士": // b_s
+                    baseValue = EvaluationTables.SHI_VALUE;
+                    posValue = EvaluationTables.B_SHI[row][col];
+                    break;
+                case "卒": // b_z
+                    baseValue = EvaluationTables.SOLDIER_VALUE;
+                    posValue = EvaluationTables.B_SOLDIER[row][col];
+                    break;
+            }
         }
-
-        return value;
+        
+        // 估值 = 基础分 + 位置分
+        return baseValue + posValue;
     }
-
 }

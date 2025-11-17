@@ -73,7 +73,9 @@ public class ChessBoardModel {
         return row >= 0 && row < ROWS && col >= 0 && col < COLS;
     }
 
-    public boolean movePiece(AbstractPiece piece, int newRow, int newCol) {
+    // 同步 movePiece 方法
+    // 通过添加 synchronized 关键字，确保同一时间只有一个线程能执行此方法
+    public synchronized boolean movePiece(AbstractPiece piece, int newRow, int newCol) {
         if (!isValidPosition(newRow, newCol)) {
             return false;
         }
@@ -81,12 +83,28 @@ public class ChessBoardModel {
     
         if (targetPiece != null) {
             if (targetPiece.isRed() != piece.isRed()) {
-                pieces.remove(targetPiece);  //删除敌方棋子
+                pieces.remove(targetPiece);  // 这个 remove 是线程安全的
             }
         }
 
         piece.moveTo(newRow, newCol);
         return true;
+    }
+
+    // 用于 AI 模拟的线程安全方法
+    
+    /**
+     * 线程安全地添加一个棋子（用于悔棋和AI模拟）
+     */
+    public synchronized void addPiece(AbstractPiece piece) {
+        pieces.add(piece);
+    }
+
+    /**
+     * 线程安全地移除一个棋子（用于AI模拟）
+     */
+    public synchronized void removePiece(AbstractPiece piece) {
+        pieces.remove(piece);
     }
 
     public static int getRows() {
