@@ -10,6 +10,11 @@ public class GeneralPiece extends AbstractPiece {
     }
 
     @Override
+    public AbstractPiece copy() {
+        return new GeneralPiece(this.getName(), this.getRow(), this.getCol(), this.isRed());
+    }
+
+    @Override
     public boolean canMoveTo(int targetRow, int targetCol, ChessBoardModel model) {
         // TODO: 实现将/帅的移动规则
         int currentRow = getRow();

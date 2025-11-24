@@ -74,8 +74,7 @@ public class ChessBoardModel {
     }
 
     // 同步 movePiece 方法
-    // 通过添加 synchronized 关键字，确保同一时间只有一个线程能执行此方法
-    public synchronized boolean movePiece(AbstractPiece piece, int newRow, int newCol) {
+    public boolean movePiece(AbstractPiece piece, int newRow, int newCol) {
         if (!isValidPosition(newRow, newCol)) {
             return false;
         }
@@ -91,19 +90,28 @@ public class ChessBoardModel {
         return true;
     }
 
-    // 用于 AI 模拟的线程安全方法
+    public ChessBoardModel deepClone() {
+        ChessBoardModel newModel = new ChessBoardModel();
+        newModel.getPieces().clear(); // 清空初始化时的默认棋子
+        
+        // 复制当前棋盘上的所有棋子
+        for (AbstractPiece piece : this.pieces) {
+            newModel.addPiece(piece.copy()); // 关键：使用 copy() 创建新对象
+        }
+        return newModel;
+    }
     
     /**
-     * 线程安全地添加一个棋子（用于悔棋和AI模拟）
+     * 添加一个棋子（用于悔棋和AI模拟）
      */
-    public synchronized void addPiece(AbstractPiece piece) {
+    public void addPiece(AbstractPiece piece) {
         pieces.add(piece);
     }
 
     /**
-     * 线程安全地移除一个棋子（用于AI模拟）
+     * 移除一个棋子（用于AI模拟）
      */
-    public synchronized void removePiece(AbstractPiece piece) {
+    public void removePiece(AbstractPiece piece) {
         pieces.remove(piece);
     }
 

@@ -62,24 +62,23 @@ public class GameLogicModel {
             boolean willBeInCheck;
             boolean willFaceGenerals;
 
-            // 使用 model 对象加锁
-            synchronized (model) {
-                if (capturedPiece != null) {
-                    model.removePiece(capturedPiece); 
-                }
-                selectedPiece.moveTo(targetRow, targetCol); 
-                
-                //  检查在模拟移动后，自己是否被将军
-                willBeInCheck = isChecked(selectedPiece.isRed()); 
-                // 是否会导致将帅碰面
-                willFaceGenerals = isGeneralFacing(); 
 
-                // 恢复棋盘
-                selectedPiece.moveTo(originalRow, originalCol); 
-                if (capturedPiece != null) {
-                    model.addPiece(capturedPiece); 
-                }
-            } // 解锁
+            if (capturedPiece != null) {
+                model.removePiece(capturedPiece); 
+            }
+            selectedPiece.moveTo(targetRow, targetCol); 
+            
+            //  检查在模拟移动后，自己是否被将军
+            willBeInCheck = isChecked(selectedPiece.isRed()); 
+            // 是否会导致将帅碰面
+            willFaceGenerals = isGeneralFacing(); 
+
+            // 恢复棋盘
+            selectedPiece.moveTo(originalRow, originalCol); 
+            if (capturedPiece != null) {
+                model.addPiece(capturedPiece); 
+            }
+
 
             //  如果模拟移动会导致自己被将军，则此移动非法
             if (willBeInCheck) {
@@ -119,19 +118,65 @@ public class GameLogicModel {
         int currentRow = movedPiece.getRow();
         int currentCol = movedPiece.getCol();
         AbstractPiece eatPiece = lastMove.getEatPiece();
-        // 使用 model 对象加锁
-        synchronized (model) {
-            movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
-            if (eatPiece != null) {//如果有子被吃就恢复
-                model.addPiece(eatPiece); //
-            }
-        } // 解锁
         
+        movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
+        if (eatPiece != null) {//如果有子被吃就恢复
+            model.addPiece(eatPiece); //
+        }
+
         changeTurn();
 
         gameState = GameState.PLAYING;
         selectedPiece = null;
         return true;
+    }
+
+    /**
+     * [AI专用] 快速移动棋子，跳过所有合法性检查。
+     * 因为在调用此方法前，AI 已经通过 getAllLegalMoves 确认过合法性了。
+     */
+    public void performMoveUnchecked(Move move) {
+        AbstractPiece piece = model.getPieceAt(move.getFromRow(), move.getFromCol());
+        AbstractPiece target = model.getPieceAt(move.getToRow(), move.getToCol());
+        
+        // 1. 直接吃子 (如果目标位置有子)
+        if (target != null) {
+            model.removePiece(target);
+        }
+        
+        // 2. 直接移动
+        piece.moveTo(move.getToRow(), move.getToCol());
+        
+        // 3. 记录历史 (为了能悔棋/回溯)
+        moveHistory.push(move);
+        
+        // 4. 切换回合
+        changeTurn();
+        
+        // 注意：这里不要更新 gameState，或者仅做简单更新，
+        // 没必要在递归的每一层都去判断有没有“绝杀”，只在叶子节点评估即可。
+    }
+    
+    /**
+     * [AI专用] 快速撤销移动
+     */
+    public void undoMoveUnchecked() {
+        if (moveHistory.isEmpty()) return;
+        
+        Move lastMove = moveHistory.pop();
+        AbstractPiece movedPiece = lastMove.getMovedPiece();
+        AbstractPiece eatPiece = lastMove.getEatPiece();
+        
+        // 1. 移回原位
+        movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
+        
+        // 2. 恢复被吃掉的子
+        if (eatPiece != null) {
+            model.addPiece(eatPiece);
+        }
+        
+        // 3. 切换回上一回合
+        changeTurn();
     }
 
     public boolean checkAndUpdateGameState() {
@@ -256,23 +301,21 @@ public class GameLogicModel {
         boolean inCheck;
         boolean facing;
 
-        // 使用 model 对象加锁
-        synchronized (model) {
-            if (capturedPiece != null) {
-                model.removePiece(capturedPiece);
-            }
-            piece.moveTo(targetRow, targetCol);
 
-            // 检查自己是否被将军
-            inCheck = isChecked(piece.isRed());
-            facing = isGeneralFacing();
+        if (capturedPiece != null) {
+            model.removePiece(capturedPiece);
+        }
+        piece.moveTo(targetRow, targetCol);
 
-            // 恢复棋盘
-            piece.moveTo(originalRow, originalCol);
-            if (capturedPiece != null) {
-                model.addPiece(capturedPiece);
-            }
-        } // 解锁
+        // 检查自己是否被将军
+        inCheck = isChecked(piece.isRed());
+        facing = isGeneralFacing();
+
+        // 恢复棋盘
+        piece.moveTo(originalRow, originalCol);
+        if (capturedPiece != null) {
+            model.addPiece(capturedPiece);
+        }
 
         // 如果移动后不会被将军，则移动合法
         return !inCheck && !facing;
@@ -440,5 +483,13 @@ public class GameLogicModel {
         
         // 估值 = 基础分 + 位置分
         return baseValue + posValue;
+    }
+
+    public ChessBoardModel getModel() { 
+        return this.model; 
+    }
+
+    public void setRedTurn(boolean isRedTurn) {
+        this.redTurn = isRedTurn;
     }
 }
