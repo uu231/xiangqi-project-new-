@@ -46,6 +46,16 @@ public class XiangqiApplication {
             // 把 welcome::show 作为回调传给 LoginFrame
             LoginFrame login = new LoginFrame(welcome::show);
 
+            topUserPanel.setOnExitAction(() -> {
+                // 1. 隐藏游戏窗口
+                frame.setVisible(false);
+                // 2. 重置游戏状态
+                gameLogic.restart();
+                boardPanel.repaint();
+                // 3. 显示欢迎界面
+                welcome.show();
+            });
+
         });
     }
 }

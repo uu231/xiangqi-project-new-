@@ -46,6 +46,7 @@ mvn exec:java -Dexec.mainClass="edu.sustech.xiangqi.XiangqiApplication"
 - 改良AI多线程导致AI绘制错误问题，让AI在background操作，彻底解决多线程冲突问题
 - 加入简单开局库
 - 加入长将/长捉判断
+- 加入返回主菜单按钮
 
 
 ## 🛠️ 技术栈
@@ -56,8 +57,7 @@ mvn exec:java -Dexec.mainClass="edu.sustech.xiangqi.XiangqiApplication"
 ## 待完成
 1.基础的多用户登录
 2.棋盘存档以及读档功能
-3.开局库的手动设置
-4.UI动画（可选）
-5.行棋声音
-6.AI进一步优化（可选）
-7.基础残局
+3.UI动画（可选）
+4.行棋声音
+5.基础残局
+6.将军将死动画

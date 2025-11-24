@@ -83,6 +83,10 @@ public class OpeningBook {
         book.put("r1bakab1r/9/1cn3nc1/p1p1p1p1p/9/9/P1P1P1P1P/2N1C2C1/9/1RBAKABNR", new String[]{
             "0,0,0,1"
         });
+
+        book.put("1rbakab1r/9/1cn1c1n2/pRp1p1p1p/9/9/P1P1P1P1P/2N1C1NC1/9/2BAKAB1R", new String[]{
+            "2,1,2,0"
+        });
     }
 
     /**
