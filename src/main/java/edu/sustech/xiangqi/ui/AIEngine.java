@@ -4,6 +4,7 @@ import edu.sustech.xiangqi.model.AbstractPiece;
 import edu.sustech.xiangqi.model.GameLogicModel;
 import edu.sustech.xiangqi.model.ChessBoardModel;
 import edu.sustech.xiangqi.model.Move;
+import edu.sustech.xiangqi.model.OpeningBook;
 
 import javax.swing.*;
 import java.util.Collections;
@@ -29,24 +30,36 @@ public class AIEngine {
         SwingWorker<Move, Void> worker = new SwingWorker<Move, Void>() {
             @Override
             protected Move doInBackground() throws Exception {
-                // 1. 【关键】克隆游戏环境（数据模型 + 逻辑模型）
-                // 注意：这里需要在主线程(EDT)之外做，但为了保证克隆时的原子性，
-                // 最好在 execute 之前或这里加锁瞬间克隆一下，或者利用 ChessBoardModel 的 synchronized
+                // 1.克隆游戏环境（数据模型 + 逻辑模型）
+
                 
                 ChessBoardModel sandboxModel; 
                 boolean currentRedTurn;
-                synchronized(gameLogic.getModel()) { // 假设 gameLogic 提供了 getModel()
+                List<String> currentHistory;
+                synchronized(gameLogic.getModel()) { 
                     sandboxModel = gameLogic.getModel().deepClone();
                     currentRedTurn = gameLogic.isRedTurn();
+                    currentHistory = gameLogic.getFenHistory();
                 }
                 
-                // 创建一个专属于 AI 的逻辑控制器，绑定到沙盒棋盘上
                 GameLogicModel sandboxLogic = new GameLogicModel(sandboxModel);
 
                 sandboxLogic.setRedTurn(currentRedTurn);
+                sandboxLogic.setFenHistory(currentHistory);
+
+                // 查询开局库 
+                String currentFen = sandboxModel.getFen();
+                // 方便复制 FEN 串去手写开局库
+                System.out.println("当前FEN: " + currentFen); 
+                
+                int[] bookMoveCoords = OpeningBook.getBookMove(currentFen);
+                if (bookMoveCoords != null) {
+                    System.out.println(">>> 命中开局库！秒下！");
+                    // 将坐标转换为合法的 Move 对象返回
+                    return findMoveByCoords(sandboxLogic, bookMoveCoords);
+                }
                 
                 // 2. 在沙盒逻辑上跑 AI，完全不会影响 UI
-                // 注意：findBestMove 需要修改，让它接受 sandboxLogic 作为参数
                 return findBestMove(sandboxLogic, searchDepth, false, Integer.MIN_VALUE, Integer.MAX_VALUE);
             }
 
@@ -56,8 +69,6 @@ public class AIEngine {
                     Move bestMove = get(); // 获取计算结果（这里的 Move 包含的是沙盒里的棋子对象）
                     if (bestMove != null) {
                         // 3. 将沙盒的计算结果，映射回主棋盘
-                        // 因为 bestMove 里的 Piece 是沙盒里的对象，不能直接用。
-                        // 我们只需要坐标：
                         int fromRow = bestMove.getFromRow();
                         int fromCol = bestMove.getFromCol();
                         int toRow = bestMove.getToRow();
@@ -88,7 +99,6 @@ public class AIEngine {
      * AI是黑方，所以是 "MinimizingPlayer" (isMaximizingPlayer = false)
      */
     private Move findBestMove(GameLogicModel logic, int depth, boolean isMaximizingPlayer, int alpha, int beta) {
-        // ✅ 修正：使用参数 logic，而不是全局的 gameLogic 或 Logic
         List<Move> legalMoves = logic.getAllLegalMoves(logic.isRedTurn());
 
         Collections.shuffle(legalMoves);
@@ -98,9 +108,11 @@ public class AIEngine {
         int bestValue = Integer.MAX_VALUE; // AI (黑方) 找最小值
 
         for (Move move : legalMoves) {
+            if (logic.isProhibitedMove(move)) {
+                continue;
+            }
             logic.performMoveUnchecked(move);
-
-            // ✅ 修正：将沙盒 logic 传递给递归函数
+        
             int value = minimax(logic, depth - 1, true, alpha, beta);
 
             logic.undoMoveUnchecked();
@@ -117,15 +129,14 @@ public class AIEngine {
 
     /**
      * Minimax 递归函数
-     * 注意参数：增加了 GameLogicModel logic
      */
     private int minimax(GameLogicModel logic, int depth, boolean isMaximizingPlayer, int alpha, int beta) {
         if (depth == 0) {
-            // ✅ 修正：评估沙盒 logic 的局面
+            // 评估沙盒 logic 的局面
             return logic.evaluateBoard();
         }
 
-        // ✅ 修正：检查沙盒 logic 的状态
+        // 检查沙盒 logic 的状态
         if (logic.checkAndUpdateGameState()) {
             GameLogicModel.GameState state = logic.getGameState();
             if (state == GameLogicModel.GameState.RED_WIN) return 1000000;
@@ -144,7 +155,7 @@ public class AIEngine {
             for (Move move : legalMoves) {
                 logic.performMoveUnchecked(move);
 
-                // ✅ 修正：传递 logic
+                // 传递 logic
                 bestValue = Math.max(bestValue, minimax(logic, depth - 1, false, alpha, beta));
                 logic.undoMoveUnchecked();
 
@@ -157,7 +168,7 @@ public class AIEngine {
             for (Move move : legalMoves) {
                 logic.performMoveUnchecked(move);
 
-                // ✅ 修正：传递 logic
+                // 传递 logic
                 bestValue = Math.min(bestValue, minimax(logic, depth - 1, true, alpha, beta));
                 logic.undoMoveUnchecked();
 
@@ -166,5 +177,25 @@ public class AIEngine {
             }
             return bestValue;
         }
+    }
+
+
+    private Move findMoveByCoords(GameLogicModel logic, int[] coords) {
+        int fromR = coords[0];
+        int fromC = coords[1];
+        int toR = coords[2];
+        int toC = coords[3];
+        
+        // 必须从当前所有合法走法中匹配，以确保走法合法
+        List<Move> legalMoves = logic.getAllLegalMoves(logic.isRedTurn());
+        for (Move move : legalMoves) {
+            AbstractPiece p = move.getMovedPiece();
+            if (p.getRow() == fromR && p.getCol() == fromC && 
+                move.getToRow() == toR && move.getToCol() == toC) {
+                return move;
+            }
+        }
+        System.err.println("开局库走法在当前局面不合法！");
+        return null; // 开局库走法不合法
     }
 }

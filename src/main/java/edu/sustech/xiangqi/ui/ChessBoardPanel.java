@@ -94,7 +94,7 @@ public class ChessBoardPanel extends JPanel {
                     showGameOverDialog();
                 } else if (isAIGame && !gameLogic.isRedTurn()) {
 
-                    // (新) 如果是AI局，且轮到AI(黑方)走棋
+                    // 如果是AI局，且轮到AI(黑方)走棋
                     aiEngine.performComputerMove(); //
                 }
             } else {
@@ -107,20 +107,6 @@ public class ChessBoardPanel extends JPanel {
                 }
             }
         }
-    }
-
-    private void drawPiecesFromList(Graphics2D g, List<AbstractPiece> pieces) {
-        if (pieces == null) return;
-        
-        // **** 使用 model 对象加锁 ****
-        // 保护浅快照在绘制期间不被AI线程修改
-        synchronized (model) {
-            for (AbstractPiece piece : pieces) { 
-                int x = MARGIN + piece.getCol() * CELL_SIZE; //
-                int y = MARGIN + piece.getRow() * CELL_SIZE; //
-                drawSinglePiece(g, piece, x, y, false);
-            }
-        } // **** 解锁 ****
     }
 
     public void showGameOverDialog() {
@@ -151,7 +137,7 @@ public class ChessBoardPanel extends JPanel {
 
 
     public boolean checkGameOver() {
-        // (新) 我们让 gameLogic 检查并更新状态
+        // 让 gameLogic 检查并更新状态
         return gameLogic.checkAndUpdateGameState();
     }
 

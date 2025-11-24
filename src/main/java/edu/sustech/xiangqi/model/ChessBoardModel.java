@@ -100,6 +100,67 @@ public class ChessBoardModel {
         }
         return newModel;
     }
+
+    /**
+     * 生成当前棋盘局面的简易 FEN 串
+     * 格式示例：rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR
+     * 大写=红方，小写=黑方，数字=连续空位数
+     */
+    public String getFen() {
+        StringBuilder sb = new StringBuilder();
+        // 创建一个临时二维数组来映射棋盘
+        String[][] boardMap = new String[ROWS][COLS];
+        
+        for (AbstractPiece piece : pieces) {
+            String code = "";
+            // 简易映射：红方大写，黑方小写
+            if (piece.isRed()) {
+                switch (piece.getName()) {
+                    case "帅": code = "K"; break;
+                    case "车": code = "R"; break;
+                    case "马": code = "N"; break;
+                    case "炮": code = "C"; break;
+                    case "相": code = "B"; break;
+                    case "仕": code = "A"; break;
+                    case "兵": code = "P"; break;
+                }
+            } else {
+                switch (piece.getName()) {
+                    case "将": code = "k"; break;
+                    case "车": code = "r"; break;
+                    case "马": code = "n"; break;
+                    case "炮": code = "c"; break;
+                    case "象": code = "b"; break;
+                    case "士": code = "a"; break;
+                    case "卒": code = "p"; break;
+                }
+            }
+            boardMap[piece.getRow()][piece.getCol()] = code;
+        }
+
+        // 遍历生成字符串
+        for (int i = 0; i < ROWS; i++) {
+            int emptyCount = 0;
+            for (int j = 0; j < COLS; j++) {
+                if (boardMap[i][j] == null) {
+                    emptyCount++;
+                } else {
+                    if (emptyCount > 0) {
+                        sb.append(emptyCount);
+                        emptyCount = 0;
+                    }
+                    sb.append(boardMap[i][j]);
+                }
+            }
+            if (emptyCount > 0) {
+                sb.append(emptyCount);
+            }
+            if (i < ROWS - 1) {
+                sb.append("/");
+            }
+        }
+        return sb.toString();
+    }
     
     /**
      * 添加一个棋子（用于悔棋和AI模拟）

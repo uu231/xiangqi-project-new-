@@ -11,6 +11,7 @@ public class GameLogicModel {
     private ChessBoardModel model;
     private GameState gameState;
     private final Stack<Move> moveHistory;
+    private final List<String> fenHistory = new ArrayList<>();
 
     public enum GameState {
         PLAYING,
@@ -30,6 +31,7 @@ public class GameLogicModel {
     private void initGame() {
         this.gameState = GameState.PLAYING;
         this.moveHistory.clear();
+        this.fenHistory.add(model.getFen());
     }
 
     public boolean selectPiece(int row, int col) {
@@ -97,12 +99,24 @@ public class GameLogicModel {
             int fromCol = pieceToMove.getCol();
             AbstractPiece pieceToCapture = model.getPieceAt(targetRow, targetCol);
             Move move = new Move(pieceToMove, fromRow, fromCol, targetRow, targetCol, pieceToCapture);
+
+            AbstractPiece targetP = model.getPieceAt(targetRow, targetCol);
+            Move tempMove = new Move(selectedPiece, selectedPiece.getRow(), selectedPiece.getCol(), targetRow, targetCol, targetP);
+            
+            if (isProhibitedMove(tempMove)) {
+                // 如果是玩家走，可以弹窗提示，这里简单 print
+                System.out.println("禁止走棋：长将或重复局面！");
+                return false;
+            }
             // 3. 如果所有检查都通过，执行真正的移动
             boolean moved = model.movePiece(selectedPiece, targetRow, targetCol);
             if (moved) {
+                if (pieceToCapture != null) {
+                    fenHistory.clear();
+                }
                 moveHistory.push(move);
                 selectedPiece = null;
-
+                fenHistory.add(model.getFen());
                 changeTurn();
                 checkAndUpdateGameState();
             }
@@ -128,17 +142,19 @@ public class GameLogicModel {
 
         gameState = GameState.PLAYING;
         selectedPiece = null;
+        if (!fenHistory.isEmpty()) {
+            fenHistory.remove(fenHistory.size() - 1);
+        }
         return true;
     }
 
-    /**
-     * [AI专用] 快速移动棋子，跳过所有合法性检查。
-     * 因为在调用此方法前，AI 已经通过 getAllLegalMoves 确认过合法性了。
-     */
     public void performMoveUnchecked(Move move) {
         AbstractPiece piece = model.getPieceAt(move.getFromRow(), move.getFromCol());
         AbstractPiece target = model.getPieceAt(move.getToRow(), move.getToCol());
         
+        if (target != null) {
+            fenHistory.clear();
+        }
         // 1. 直接吃子 (如果目标位置有子)
         if (target != null) {
             model.removePiece(target);
@@ -152,14 +168,9 @@ public class GameLogicModel {
         
         // 4. 切换回合
         changeTurn();
-        
-        // 注意：这里不要更新 gameState，或者仅做简单更新，
         // 没必要在递归的每一层都去判断有没有“绝杀”，只在叶子节点评估即可。
     }
     
-    /**
-     * [AI专用] 快速撤销移动
-     */
     public void undoMoveUnchecked() {
         if (moveHistory.isEmpty()) return;
         
@@ -405,7 +416,6 @@ public class GameLogicModel {
 
     /**
      * AI调用：获取单个棋子的价值 (基础分 + 位置分)
-     * 
      */
     private int getPieceValue(AbstractPiece piece) {
         if (piece == null) return 0;
@@ -483,6 +493,71 @@ public class GameLogicModel {
         
         // 估值 = 基础分 + 位置分
         return baseValue + posValue;
+    }
+
+    // 检测走法是否违规（长将/长捉/重复）
+    public boolean isProhibitedMove(Move move) {
+        AbstractPiece piece = move.getMovedPiece();
+        int targetRow = move.getToRow();
+        int targetCol = move.getToCol();
+        
+        // 模拟移动
+        int originalRow = piece.getRow();
+        int originalCol = piece.getCol();
+        AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
+        
+        String resultingFen = "";
+        
+        if (capturedPiece != null) {
+            model.removePiece(capturedPiece);
+        }
+        piece.moveTo(targetRow, targetCol);
+        
+        // 生成移动后的 FEN
+        resultingFen = model.getFen();
+        
+        // 检查该局面在历史上出现的次数
+        int appearanceCount = 0;
+        for (String fen : fenHistory) {
+            if (fen.equals(resultingFen)) {
+                appearanceCount++;
+            }
+        }
+        
+        // 判断逻辑：
+        // 如果该局面已经出现过 2 次（加上这次就是第 3 次），则构成重复局面
+        boolean isRepetitive = (appearanceCount >= 2);
+        boolean isForbidden = false;
+
+        if (isRepetitive) {
+            // 区分“长将”还是“普通重复”
+            boolean checksOpponent = isChecked(!piece.isRed());
+            
+            if (checksOpponent) {
+                System.out.println("【禁止】长将判负！");
+                isForbidden = true;
+            } else {
+                System.out.println("【禁止】重复局面（长捉/闲着）！");
+                isForbidden = true; 
+            }
+        }
+
+        // 恢复棋盘
+        piece.moveTo(originalRow, originalCol);
+        if (capturedPiece != null) {
+            model.addPiece(capturedPiece);
+        }
+        
+        return isForbidden;
+    }
+
+    public List<String> getFenHistory() {
+        return fenHistory;
+    }
+
+    public void setFenHistory(List<String> history) {
+        this.fenHistory.clear();
+        this.fenHistory.addAll(history);
     }
 
     public ChessBoardModel getModel() { 
