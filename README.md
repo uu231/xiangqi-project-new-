@@ -44,6 +44,8 @@ mvn exec:java -Dexec.mainClass="edu.sustech.xiangqi.XiangqiApplication"
 
 ### 2025-11-24
 - 改良AI多线程导致AI绘制错误问题，让AI在background操作，彻底解决多线程冲突问题
+- 加入简单开局库
+- 加入长将/长捉判断
 
 
 ## 🛠️ 技术栈
