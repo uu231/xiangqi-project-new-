@@ -23,7 +23,8 @@
         <groupId>org.openjfx</groupId>
         <artifactId>javafx-media</artifactId>
         <version>11.0.2</version>
-    </dependency>
+    </dependency><!-- SQLite JDBC驱动 -->
+
 </dependencies>
 
 </project>

@@ -1,12 +1,15 @@
 package edu.sustech.xiangqi;
 
-import edu.sustech.xiangqi.model.*;
-import edu.sustech.xiangqi.ui.*;
+import edu.sustech.xiangqi.model.ChessBoardModel;
+import edu.sustech.xiangqi.model.GameLogicModel;
+import edu.sustech.xiangqi.ui.ChessBoardPanel;
+import edu.sustech.xiangqi.ui.LoginFrame;
+import edu.sustech.xiangqi.ui.UserPanel;
+import edu.sustech.xiangqi.ui.WelcomeFrame;
 import javafx.embed.swing.JFXPanel;
 
 import javax.swing.*;
-import java.awt.*; 
-import java.util.Arrays; 
+import java.awt.*;
 
 public class XiangqiApplication {
     public static void main(String[] args) {
