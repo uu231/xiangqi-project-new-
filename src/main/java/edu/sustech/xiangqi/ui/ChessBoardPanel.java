@@ -23,10 +23,6 @@ public class ChessBoardPanel extends JPanel {
     private boolean boardEnabled = true; // 控制棋盘是否可点击
     private boolean isAISimulating = false;
 
-    /** 存储AI思考时，界面应该显示的棋子列表快照 */
-    private List<AbstractPiece> piecesSnapshotForAI = null;
-    /** 存储AI思考时，界面应该显示的上一步移动快照 */
-    private Move lastMoveSnapshotForAI = null;
 
     /**
      * 单个棋盘格子的尺寸（px）
@@ -97,16 +93,8 @@ public class ChessBoardPanel extends JPanel {
                 if (checkGameOver()) {
                     showGameOverDialog();
                 } else if (isAIGame && !gameLogic.isRedTurn()) {
-                    // **** 使用 model 对象加锁 ****
-                    synchronized (model) {
-                        // 必须在AI启动前，复制一份当前的棋子列表
-                        this.piecesSnapshotForAI = new ArrayList<>(model.getPieces()); //
-                    } // **** 解锁 ****
 
-                    // 必须在AI启动前，获取最后一步（即玩家刚走的这一步）
-                    this.lastMoveSnapshotForAI = gameLogic.getLastMove(); //
-
-                    // (新) 如果是AI局，且轮到AI(黑方)走棋
+                    // 如果是AI局，且轮到AI(黑方)走棋
                     aiEngine.performComputerMove(); //
                 }
             } else {
@@ -119,25 +107,6 @@ public class ChessBoardPanel extends JPanel {
                 }
             }
         }
-    }
-
-    private void drawPiecesFromList(Graphics2D g, List<AbstractPiece> pieces) {
-        if (pieces == null) return;
-        
-        // **** 使用 model 对象加锁 ****
-        // 保护浅快照在绘制期间不被AI线程修改
-        synchronized (model) {
-            for (AbstractPiece piece : pieces) { 
-                int x = MARGIN + piece.getCol() * CELL_SIZE; //
-                int y = MARGIN + piece.getRow() * CELL_SIZE; //
-                drawSinglePiece(g, piece, x, y, false);
-            }
-        } // **** 解锁 ****
-    }
-
-    public void clearAIPiecesSnapshot() {
-        this.piecesSnapshotForAI = null;
-        this.lastMoveSnapshotForAI = null;
     }
 
     public void showGameOverDialog() {
@@ -168,7 +137,7 @@ public class ChessBoardPanel extends JPanel {
 
 
     public boolean checkGameOver() {
-        // (新) 我们让 gameLogic 检查并更新状态
+        // 让 gameLogic 检查并更新状态
         return gameLogic.checkAndUpdateGameState();
     }
 
@@ -196,60 +165,53 @@ public class ChessBoardPanel extends JPanel {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
+        // 开启抗锯齿，让文字和圆圈更平滑
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // 绘制棋盘背景
-        if (boardImage != null) g2d.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
-        
-        // 获取当前选中的棋子
-        AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
-        
-        if (isAISimulating) {
-            // 1. AI 正在思考：绘制【快照】中的棋子
-            drawPiecesFromList(g2d, this.piecesSnapshotForAI);
+        // 1. 绘制棋盘背景
+        if (boardImage != null) {
+            g2d.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
+        }
 
-            // 2. 绘制半透明遮罩
-            g2d.setColor(new Color(0, 0, 0, 100)); // 半透明黑色
+        // 2. 绘制棋子 (始终绘制主模型，因为现在主模型在AI思考时是静止安全的)
+        drawPieces(g2d);
+
+        // 3. 绘制"上一步"的提示 (始终显示，保持界面连贯)
+        // 直接从 gameLogic 获取最新的移动，不再需要快照
+        Move lastMove = gameLogic.getLastMove(); 
+        if (lastMove != null) {
+            drawLastMoveHints(g2d);
+        }
+
+        // 4. 根据状态绘制不同的覆盖层
+        if (isAISimulating) {
+            // --- AI 思考中：绘制遮罩和文字 ---
+            
+            // (A) 绘制半透明黑色遮罩
+            g2d.setColor(new Color(0, 0, 0, 100)); 
             g2d.fillRect(0, 0, getWidth(), getHeight());
-            
-            // 3. 使用【快照】中的 lastMove 在遮罩上重新绘制提示
-            if (this.lastMoveSnapshotForAI != null) {
-                AbstractPiece piece = this.lastMoveSnapshotForAI.getMovedPiece();
-                int x = MARGIN + piece.getCol() * CELL_SIZE;
-                int y = MARGIN + piece.getRow() * CELL_SIZE;
-                
-                // 重新绘制这个棋子 (不带选中框)
-                drawSinglePiece(g2d, piece, x, y, false);
-            
-                int fromX = MARGIN + this.lastMoveSnapshotForAI.getFromCol() * CELL_SIZE;
-                int fromY = MARGIN + this.lastMoveSnapshotForAI.getFromRow() * CELL_SIZE;
-                g.setColor(new Color(255, 255, 255, 200));
-                g.fillOval(fromX - 8, fromY - 8, 16, 16);
-            }
-            
-            // 4. 绘制 "思考中" 文字
+
+            // (B) 绘制 "AI 正在思考..." 文字
             g2d.setColor(Color.WHITE);
-            g2d.setFont(new Font("微软雅黑", Font.BOLD, 24));
+            g2d.setFont(new Font("微软雅黑", Font.BOLD, 26));
+            
             FontMetrics fm = g2d.getFontMetrics();
             String text = "AI 正在思考...";
             int textWidth = fm.stringWidth(text);
-            g2d.drawString(text, (getWidth() - textWidth) / 2, getHeight() / 2);
+            int textHeight = fm.getAscent();
+            
+            // 居中显示
+            g2d.drawString(text, (getWidth() - textWidth) / 2, (getHeight() + textHeight) / 2);
 
         } else {
-            // AI 没在思考，正常绘制【实时】棋子
-            drawPieces(g2d); 
+            // --- 玩家回合：绘制交互提示 ---
             
-            // 正常绘制【实时】提示
-            Move lastMove = gameLogic.getLastMove(); // 获取实时的
-            
+            // 仅在轮到玩家操作时，才绘制“选中框”和“合法走法提示”
+            AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
             if (selectedPiece != null) {
                 drawValidMoveHints(g2d, selectedPiece);
             }
-            if (lastMove != null) {
-                drawLastMoveHints(g2d);
-            }
         }
-
     }
 
     /**
@@ -334,20 +296,13 @@ public class ChessBoardPanel extends JPanel {
     private void drawPieces(Graphics2D g) {
         AbstractPiece selectedPiece = gameLogic.getSelectedPiece();
         
-        // **** 使用 model 对象加锁 ****
-        // 保护实时绘制
-        List<AbstractPiece> piecesSnapshot;
-        synchronized (model) { 
-            piecesSnapshot = new ArrayList<>(model.getPieces()); //
-            
-            for (AbstractPiece piece : piecesSnapshot) { 
-                int x = MARGIN + piece.getCol() * CELL_SIZE; //
-                int y = MARGIN + piece.getRow() * CELL_SIZE; //
-                boolean isSelected = (piece == selectedPiece);
+        for (AbstractPiece piece : model.getPieces()) { 
+            int x = MARGIN + piece.getCol() * CELL_SIZE;
+            int y = MARGIN + piece.getRow() * CELL_SIZE;
+            boolean isSelected = (piece == selectedPiece);
 
-                drawSinglePiece(g, piece, x, y, isSelected);
-            }
-        } // **** 解锁 ****
+            drawSinglePiece(g, piece, x, y, isSelected);
+        }
     }
 
     private void drawSinglePiece(Graphics2D g, AbstractPiece piece, int x, int y, boolean isSelected) {

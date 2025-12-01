@@ -15,6 +15,7 @@ public class UserPanel extends JPanel {
     private final GameLogicModel gameLogic;
     private final ChessBoardPanel boardPanel; 
     private Image panelImage;
+    private Runnable onExitAction;
 
 
     public UserPanel(String playerName, boolean isTopPanel, GameLogicModel gameLogic, ChessBoardPanel boardPanel) {
@@ -120,6 +121,10 @@ public class UserPanel extends JPanel {
         return btn;
     }
 
+    public void setOnExitAction(Runnable onExitAction) {
+        this.onExitAction = onExitAction;
+    }
+
     /**
      * 显示弹出菜单
      */
@@ -170,6 +175,13 @@ public class UserPanel extends JPanel {
         ImageIcon surrenderIcon = null;
         if (surrenderImage != null) {
             surrenderIcon = new ImageIcon(surrenderImage.getScaledInstance(iconSize, iconSize, Image.SCALE_SMOOTH));
+        }
+
+        //4. 加载菜单图标
+        Image homeImage = ImageLoader.loadImage("home.png");
+        ImageIcon homeIcon = null;
+        if (homeImage != null) {
+            homeIcon = new ImageIcon(homeImage.getScaledInstance(iconSize, iconSize, Image.SCALE_SMOOTH));
         }
 
         
@@ -228,13 +240,35 @@ public class UserPanel extends JPanel {
             }
         });
 
+        JMenuItem exitItem = new JMenuItem("返回主菜单");
+        exitItem.setFont(menuFont);
+
+        exitItem.setIcon(homeIcon); 
+        exitItem.addActionListener(e -> {
+            int result = JOptionPane.showConfirmDialog(boardPanel, 
+                "确定要返回主菜单吗？\n当前棋局进度将丢失。", 
+                "确认退出", 
+                JOptionPane.YES_NO_OPTION);
+                
+            if (result == JOptionPane.YES_OPTION) {
+                // 执行外部注入的退出逻辑
+                if (onExitAction != null) {
+                    onExitAction.run();
+                }
+            }
+        });
+
+        // 添加到菜单中
         popup.add(undoItem);
         popup.add(createCustomSeparator());
         popup.add(restartItem);
         popup.add(surrenderItem);
+        
+        popup.add(createCustomSeparator()); 
+        popup.add(exitItem);
 
-        // 在按钮下方显示
         popup.show(invoker, 0, invoker.getHeight());
+    
     }
 
     private JSeparator createCustomSeparator() {

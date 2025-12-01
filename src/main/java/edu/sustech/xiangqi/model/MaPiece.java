@@ -10,6 +10,11 @@ public class MaPiece extends AbstractPiece {
     }
 
     @Override
+    public AbstractPiece copy() {
+        return new MaPiece(this.getName(), this.getRow(), this.getCol(), this.isRed());
+    }
+
+    @Override
     public boolean canMoveTo(int targetRow, int targetCol, ChessBoardModel model) {
         int currentRow = getRow();
         int currentCol = getCol();

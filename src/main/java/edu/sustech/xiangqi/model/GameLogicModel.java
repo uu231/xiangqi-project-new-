@@ -11,6 +11,7 @@ public class GameLogicModel {
     private ChessBoardModel model;
     private GameState gameState;
     private final Stack<Move> moveHistory;
+    private final List<String> fenHistory = new ArrayList<>();
 
     public enum GameState {
         PLAYING,
@@ -30,6 +31,7 @@ public class GameLogicModel {
     private void initGame() {
         this.gameState = GameState.PLAYING;
         this.moveHistory.clear();
+        this.fenHistory.add(model.getFen());
     }
 
     public boolean selectPiece(int row, int col) {
@@ -62,24 +64,23 @@ public class GameLogicModel {
             boolean willBeInCheck;
             boolean willFaceGenerals;
 
-            // 使用 model 对象加锁
-            synchronized (model) {
-                if (capturedPiece != null) {
-                    model.removePiece(capturedPiece); 
-                }
-                selectedPiece.moveTo(targetRow, targetCol); 
-                
-                //  检查在模拟移动后，自己是否被将军
-                willBeInCheck = isChecked(selectedPiece.isRed()); 
-                // 是否会导致将帅碰面
-                willFaceGenerals = isGeneralFacing(); 
 
-                // 恢复棋盘
-                selectedPiece.moveTo(originalRow, originalCol); 
-                if (capturedPiece != null) {
-                    model.addPiece(capturedPiece); 
-                }
-            } // 解锁
+            if (capturedPiece != null) {
+                model.removePiece(capturedPiece); 
+            }
+            selectedPiece.moveTo(targetRow, targetCol); 
+            
+            //  检查在模拟移动后，自己是否被将军
+            willBeInCheck = isChecked(selectedPiece.isRed()); 
+            // 是否会导致将帅碰面
+            willFaceGenerals = isGeneralFacing(); 
+
+            // 恢复棋盘
+            selectedPiece.moveTo(originalRow, originalCol); 
+            if (capturedPiece != null) {
+                model.addPiece(capturedPiece); 
+            }
+
 
             //  如果模拟移动会导致自己被将军，则此移动非法
             if (willBeInCheck) {
@@ -98,12 +99,24 @@ public class GameLogicModel {
             int fromCol = pieceToMove.getCol();
             AbstractPiece pieceToCapture = model.getPieceAt(targetRow, targetCol);
             Move move = new Move(pieceToMove, fromRow, fromCol, targetRow, targetCol, pieceToCapture);
+
+            AbstractPiece targetP = model.getPieceAt(targetRow, targetCol);
+            Move tempMove = new Move(selectedPiece, selectedPiece.getRow(), selectedPiece.getCol(), targetRow, targetCol, targetP);
+            
+            if (isProhibitedMove(tempMove)) {
+                // 如果是玩家走，可以弹窗提示，这里简单 print
+                System.out.println("禁止走棋：长将或重复局面！");
+                return false;
+            }
             // 3. 如果所有检查都通过，执行真正的移动
             boolean moved = model.movePiece(selectedPiece, targetRow, targetCol);
             if (moved) {
+                if (pieceToCapture != null) {
+                    fenHistory.clear();
+                }
                 moveHistory.push(move);
                 selectedPiece = null;
-
+                fenHistory.add(model.getFen());
                 changeTurn();
                 checkAndUpdateGameState();
             }
@@ -119,19 +132,62 @@ public class GameLogicModel {
         int currentRow = movedPiece.getRow();
         int currentCol = movedPiece.getCol();
         AbstractPiece eatPiece = lastMove.getEatPiece();
-        // 使用 model 对象加锁
-        synchronized (model) {
-            movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
-            if (eatPiece != null) {//如果有子被吃就恢复
-                model.addPiece(eatPiece); //
-            }
-        } // 解锁
         
+        movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
+        if (eatPiece != null) {//如果有子被吃就恢复
+            model.addPiece(eatPiece); //
+        }
+
         changeTurn();
 
         gameState = GameState.PLAYING;
         selectedPiece = null;
+        if (!fenHistory.isEmpty()) {
+            fenHistory.remove(fenHistory.size() - 1);
+        }
         return true;
+    }
+
+    public void performMoveUnchecked(Move move) {
+        AbstractPiece piece = model.getPieceAt(move.getFromRow(), move.getFromCol());
+        AbstractPiece target = model.getPieceAt(move.getToRow(), move.getToCol());
+        
+        if (target != null) {
+            fenHistory.clear();
+        }
+        // 1. 直接吃子 (如果目标位置有子)
+        if (target != null) {
+            model.removePiece(target);
+        }
+        
+        // 2. 直接移动
+        piece.moveTo(move.getToRow(), move.getToCol());
+        
+        // 3. 记录历史 (为了能悔棋/回溯)
+        moveHistory.push(move);
+        
+        // 4. 切换回合
+        changeTurn();
+        // 没必要在递归的每一层都去判断有没有“绝杀”，只在叶子节点评估即可。
+    }
+    
+    public void undoMoveUnchecked() {
+        if (moveHistory.isEmpty()) return;
+        
+        Move lastMove = moveHistory.pop();
+        AbstractPiece movedPiece = lastMove.getMovedPiece();
+        AbstractPiece eatPiece = lastMove.getEatPiece();
+        
+        // 1. 移回原位
+        movedPiece.moveTo(lastMove.getFromRow(), lastMove.getFromCol());
+        
+        // 2. 恢复被吃掉的子
+        if (eatPiece != null) {
+            model.addPiece(eatPiece);
+        }
+        
+        // 3. 切换回上一回合
+        changeTurn();
     }
 
     public boolean checkAndUpdateGameState() {
@@ -256,23 +312,21 @@ public class GameLogicModel {
         boolean inCheck;
         boolean facing;
 
-        // 使用 model 对象加锁
-        synchronized (model) {
-            if (capturedPiece != null) {
-                model.removePiece(capturedPiece);
-            }
-            piece.moveTo(targetRow, targetCol);
 
-            // 检查自己是否被将军
-            inCheck = isChecked(piece.isRed());
-            facing = isGeneralFacing();
+        if (capturedPiece != null) {
+            model.removePiece(capturedPiece);
+        }
+        piece.moveTo(targetRow, targetCol);
 
-            // 恢复棋盘
-            piece.moveTo(originalRow, originalCol);
-            if (capturedPiece != null) {
-                model.addPiece(capturedPiece);
-            }
-        } // 解锁
+        // 检查自己是否被将军
+        inCheck = isChecked(piece.isRed());
+        facing = isGeneralFacing();
+
+        // 恢复棋盘
+        piece.moveTo(originalRow, originalCol);
+        if (capturedPiece != null) {
+            model.addPiece(capturedPiece);
+        }
 
         // 如果移动后不会被将军，则移动合法
         return !inCheck && !facing;
@@ -362,7 +416,6 @@ public class GameLogicModel {
 
     /**
      * AI调用：获取单个棋子的价值 (基础分 + 位置分)
-     * 
      */
     private int getPieceValue(AbstractPiece piece) {
         if (piece == null) return 0;
@@ -440,5 +493,94 @@ public class GameLogicModel {
         
         // 估值 = 基础分 + 位置分
         return baseValue + posValue;
+    }
+
+    // 检测走法是否违规（长将/长捉/重复）
+    public boolean isProhibitedMove(Move move) {
+        AbstractPiece piece = move.getMovedPiece();
+        int targetRow = move.getToRow();
+        int targetCol = move.getToCol();
+        
+        // 模拟移动
+        int originalRow = piece.getRow();
+        int originalCol = piece.getCol();
+        AbstractPiece capturedPiece = model.getPieceAt(targetRow, targetCol);
+        
+        String resultingFen = "";
+        
+        if (capturedPiece != null) {
+            model.removePiece(capturedPiece);
+        }
+        piece.moveTo(targetRow, targetCol);
+        
+        // 生成移动后的 FEN
+        resultingFen = model.getFen();
+        
+        // 检查该局面在历史上出现的次数
+        int appearanceCount = 0;
+        for (String fen : fenHistory) {
+            if (fen.equals(resultingFen)) {
+                appearanceCount++;
+            }
+        }
+        
+        // 判断逻辑：
+        // 如果该局面已经出现过 2 次（加上这次就是第 3 次），则构成重复局面
+        boolean isRepetitive = (appearanceCount >= 2);
+        boolean isForbidden = false;
+
+        if (isRepetitive) {
+            // 区分“长将”还是“普通重复”
+            boolean checksOpponent = isChecked(!piece.isRed());
+            
+            if (checksOpponent) {
+                System.out.println("【禁止】长将判负！");
+                isForbidden = true;
+            } else {
+                System.out.println("【禁止】重复局面（长捉/闲着）！");
+                isForbidden = true; 
+            }
+        }
+
+        // 恢复棋盘
+        piece.moveTo(originalRow, originalCol);
+        if (capturedPiece != null) {
+            model.addPiece(capturedPiece);
+        }
+        
+        return isForbidden;
+    }
+
+    public void setupEndGame(String fen) {
+        // 1. 修改数据模型
+        model.loadFen(fen);
+        
+        // 2. 重置游戏状态
+        this.gameState = GameState.PLAYING;
+        this.moveHistory.clear();
+        this.fenHistory.clear(); // 清空之前的历史
+        
+        // 3. 强制设置为红方（玩家）先行
+        this.redTurn = true; 
+        
+        // 4. 记录初始局面 (防止AI第一步就误判长将)
+        fenHistory.add(model.getFen());
+    }
+
+    public List<String> getFenHistory() {
+        return fenHistory;
+    }
+
+    public void setFenHistory(List<String> history) {
+        this.fenHistory.clear();
+        this.fenHistory.addAll(history);
+    }
+
+    public ChessBoardModel getModel() { 
+        return this.model; 
+    }
+
+    public void setRedTurn(boolean isRedTurn) {
+        this.redTurn = isRedTurn;
     }
 }

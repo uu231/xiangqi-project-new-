@@ -5,6 +5,9 @@ import edu.sustech.xiangqi.XiangqiApplication;
 import javax.swing.*;
 import java.awt.*;
 
+import java.util.Map;
+import edu.sustech.xiangqi.model.EndGameLevels;
+
 /**
  * 简单的欢迎界面，提供本地对战/人机对战入口，背景为一张图片。
  * 
@@ -14,10 +17,12 @@ public class WelcomeFrame {
 	private final JFrame window;
 	private final Runnable localBattleAction;
 	private final Runnable aiBattleAction;
+	private final java.util.function.Consumer<String> endGameAction;
 
-	public WelcomeFrame(Runnable localBattleAction, Runnable aiBattleAction) {
+	public WelcomeFrame(Runnable localBattleAction, Runnable aiBattleAction, java.util.function.Consumer<String> endGameAction) {
 		this.localBattleAction = localBattleAction;
 		this.aiBattleAction = aiBattleAction;
+		this.endGameAction = endGameAction;
 		this.window = buildWindow();
 	}
 
@@ -77,7 +82,7 @@ public class WelcomeFrame {
 		Image background = ImageLoader.loadImage("bg.jpg");
 		BackgroundPanel backgroundPanel = new BackgroundPanel(background);
 		backgroundPanel.setLayout(new BorderLayout());
-		backgroundPanel.setBorder(BorderFactory.createEmptyBorder(48, 40, 48, 40));
+		backgroundPanel.setBorder(BorderFactory.createEmptyBorder(48, 40, 20, 40));
 
 		JPanel buttonPanel = new JPanel();
 		buttonPanel.setOpaque(false);
@@ -89,11 +94,16 @@ public class WelcomeFrame {
 		JButton aiButton = createSecondaryButton("人机对战");
 		aiButton.addActionListener(e -> handleAiBattle());
 
+		JButton challengeButton = createSecondaryButton("残局挑战");
+        challengeButton.addActionListener(e -> showEndGameSelection());
+
 		buttonPanel.add(Box.createVerticalStrut(30));
 		buttonPanel.add(localButton);
 		buttonPanel.add(Box.createVerticalStrut(18));
 		buttonPanel.add(aiButton);
-		buttonPanel.add(Box.createVerticalStrut(30));
+		buttonPanel.add(Box.createVerticalStrut(18));
+		buttonPanel.add(challengeButton); 
+        buttonPanel.add(Box.createVerticalStrut(30));
 
 		JLabel tipLabel = new JLabel("棋逢对手，邀君入局", SwingConstants.CENTER);
 		tipLabel.setFont(new Font("仿宋", Font.ITALIC, 16));
@@ -170,6 +180,27 @@ public class WelcomeFrame {
 		button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		return button;
 	}
+
+	private void showEndGameSelection() {
+        Map<String, String> levels = EndGameLevels.getLevels();
+        Object[] options = levels.keySet().toArray();
+
+        String selectedLevel = (String) JOptionPane.showInputDialog(
+            window,
+            "请选择要挑战的残局：",
+            "残局挑战",
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            options,
+            options[0]
+        );
+
+        if (selectedLevel != null && endGameAction != null) {
+            String fen = levels.get(selectedLevel);
+            window.dispose();
+            endGameAction.accept(fen); // 触发回调，传入 FEN
+        }
+    }
 
 	private static class BackgroundPanel extends JPanel {
 		private final Image background;

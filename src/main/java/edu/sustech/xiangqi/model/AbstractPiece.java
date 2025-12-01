@@ -47,4 +47,9 @@ public abstract class AbstractPiece {
      * @return 是否可以移动
      */
     public abstract boolean canMoveTo(int targetRow, int targetCol, ChessBoardModel model);
+
+    /**
+     * 创建并返回当前棋子的一个深拷贝对象
+     */
+    public abstract AbstractPiece copy();
 }
