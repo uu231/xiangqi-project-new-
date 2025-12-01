@@ -8,7 +8,7 @@ public class User implements Serializable {
     private LocalTime createtime;
 
     public User() {}
-    public User(String username, String password, LocalTime createtime) {
+    public User(String username, String password) {
         this.username = username;
         this.password = password;
         this.createtime = LocalTime.from(LocalDateTime.now());
