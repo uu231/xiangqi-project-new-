@@ -551,6 +551,22 @@ public class GameLogicModel {
         return isForbidden;
     }
 
+    public void setupEndGame(String fen) {
+        // 1. 修改数据模型
+        model.loadFen(fen);
+        
+        // 2. 重置游戏状态
+        this.gameState = GameState.PLAYING;
+        this.moveHistory.clear();
+        this.fenHistory.clear(); // 清空之前的历史
+        
+        // 3. 强制设置为红方（玩家）先行
+        this.redTurn = true; 
+        
+        // 4. 记录初始局面 (防止AI第一步就误判长将)
+        fenHistory.add(model.getFen());
+    }
+
     public List<String> getFenHistory() {
         return fenHistory;
     }

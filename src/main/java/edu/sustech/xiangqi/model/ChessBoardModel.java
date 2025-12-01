@@ -161,6 +161,73 @@ public class ChessBoardModel {
         }
         return sb.toString();
     }
+
+    /**
+     * 清空棋盘并加载 FEN 串对应的残局
+     * FEN 示例: "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR"
+     */
+    public void loadFen(String fen) {
+        pieces.clear(); // 1. 清空现有棋子
+        
+        String[] rows = fen.split("/");
+        if (rows.length != ROWS) {
+            throw new IllegalArgumentException("无效的 FEN 串: 行数不对");
+        }
+
+        for (int r = 0; r < ROWS; r++) {
+            String rowStr = rows[r];
+            int c = 0;
+            for (int i = 0; i < rowStr.length(); i++) {
+                char ch = rowStr.charAt(i);
+                if (Character.isDigit(ch)) {
+                    // 数字代表连续的空位
+                    c += Character.getNumericValue(ch);
+                } else {
+                    // 字母代表棋子
+                    // 大写=红方, 小写=黑方
+                    boolean isRed = Character.isUpperCase(ch);
+                    String name = getPieceNameFromChar(ch);
+                    if (name != null) {
+                        AbstractPiece piece = createPiece(name, r, c, isRed);
+                        if (piece != null) {
+                            pieces.add(piece);
+                        }
+                    }
+                    c++;
+                }
+            }
+        }
+    }
+
+    // 字符转棋子名辅助方法
+    private String getPieceNameFromChar(char ch) {
+        char lower = Character.toLowerCase(ch);
+        switch (lower) {
+            case 'k': return Character.isUpperCase(ch) ? "帅" : "将";
+            case 'r': return "车";
+            case 'n': return "马";
+            case 'c': return "炮";
+            case 'b': return Character.isUpperCase(ch) ? "相" : "象";
+            case 'a': return Character.isUpperCase(ch) ? "仕" : "士";
+            case 'p': return Character.isUpperCase(ch) ? "兵" : "卒";
+            default: return null;
+        }
+    }
+
+    // 棋子工厂方法
+    private AbstractPiece createPiece(String name, int r, int c, boolean isRed) {
+        switch (name) {
+            case "将": return new GeneralPiece("将", r, c, isRed);
+            case "帅": return new GeneralPiece("帅", r, c, isRed);
+            case "车": return new CarPiece("车", r, c, isRed);
+            case "马": return new MaPiece("马", r, c, isRed);
+            case "炮": return new PaoPiece("炮", r, c, isRed);
+            case "相": case "象": return new XiangPiece(name, r, c, isRed);
+            case "仕": case "士": return new ShiPiece(name, r, c, isRed);
+            case "兵": case "卒": return new SoldierPiece(name, r, c, isRed);
+            default: return null;
+        }
+    }
     
     /**
      * 添加一个棋子（用于悔棋和AI模拟）

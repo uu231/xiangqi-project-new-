@@ -39,8 +39,15 @@ public class XiangqiApplication {
                 frame.setVisible(true);
             };
 
+            java.util.function.Consumer<String> startEndGame = (fen) -> {
+                boardPanel.setGameMode(true); // 开启 AI 模式
+                gameLogic.setupEndGame(fen);  // 加载残局
+                boardPanel.repaint();         // 刷新棋盘
+                frame.setVisible(true);       // 显示窗口
+            };
+
             // 4. 创建欢迎界面，并传入启动逻辑
-            WelcomeFrame welcome = new WelcomeFrame(startLocalGame, startAIGame);
+            WelcomeFrame welcome = new WelcomeFrame(startLocalGame, startAIGame, startEndGame);
             
             // 5. 创建登录界面，并让它在成功后显示欢迎界面
             // 把 welcome::show 作为回调传给 LoginFrame
