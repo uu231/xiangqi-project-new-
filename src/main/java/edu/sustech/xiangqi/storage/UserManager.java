@@ -26,7 +26,7 @@ public class UserManager {
 
     public static User login(String username,String password){
         User user=loadUserFromFile(username);
-        if(username!=null&&user.getPassword().equals(password)){
+        if(user!=null&&user.getPassword().equals(password)){
             return user;
         }
         return null;
